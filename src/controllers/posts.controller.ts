@@ -3,11 +3,9 @@ import { prisma } from '../prisma/client';
 import { AuthRequest } from '../types';
 import { generateSlug } from '../utils/slug';
 
-// ─── Shared include config ────────────────────────────────────────────────────
-// Centralise the relations we always want to load with a post so that every
-// controller action returns a consistent shape.
 const POST_INCLUDE = {
   category: { select: { id: true, name: true } },
+  author: { select: { id: true, name: true, email: true } },
   tags: {
     select: {
       tag: { select: { id: true, name: true } },
@@ -15,25 +13,10 @@ const POST_INCLUDE = {
   },
 } as const;
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-/**
- * Transforms the raw PostTag[] join records into a flat array of tag objects.
- * Before: [{ tag: { id: 1, name: 'node' } }]
- * After:  [{ id: 1, name: 'node' }]
- */
 const flattenTags = (post: { tags: { tag: { id: number; name: string } }[] }) => ({
   ...post,
   tags: post.tags.map((pt) => pt.tag),
 });
-
-/**
- * Resolves tag IDs from the request body.
- * Accepts either an array of IDs (numbers) or an empty array.
- * Returns the Prisma `set` syntax to replace the post's current tags.
- */
-const buildTagsConnect = (tagIds: number[]) =>
-  tagIds.map((id) => ({ postId_tagId: { postId: 0, tagId: id } })); // placeholder, see usage below
 
 // ─── Controllers ──────────────────────────────────────────────────────────────
 
@@ -68,6 +51,8 @@ export const getPostById = async (req: AuthRequest, res: Response, next: NextFun
 
 export const createPost = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const authorId = req.user!.userId;
+
     const { title, cover, body, categoryId, tagIds = [] } = req.body as {
       title: string;
       cover?: string;
@@ -83,8 +68,6 @@ export const createPost = async (req: AuthRequest, res: Response, next: NextFunc
 
     const slug = generateSlug(title);
 
-    // We use a Prisma nested write to create the Post and the PostTag join rows
-    // in a single atomic transaction — no need for prisma.$transaction here.
     const post = await prisma.post.create({
       data: {
         title,
@@ -92,7 +75,7 @@ export const createPost = async (req: AuthRequest, res: Response, next: NextFunc
         cover,
         body,
         category: { connect: { id: Number(categoryId) } },
-        // Nested create on the explicit join table
+        author:   { connect: { id: authorId } },
         tags: {
           create: tagIds.map((tagId) => ({
             tag: { connect: { id: tagId } },
@@ -125,13 +108,8 @@ export const updatePost = async (req: AuthRequest, res: Response, next: NextFunc
       return;
     }
 
-    // Regenerate slug only if the title actually changed
     const slug = title && title !== existing.title ? generateSlug(title) : existing.slug;
 
-    // When tagIds are provided we do a full replacement:
-    //   1. Delete all current PostTag rows for this post.
-    //   2. Create the new ones.
-    // This is wrapped in a transaction to keep the DB consistent.
     const post = await prisma.$transaction(async (tx) => {
       if (tagIds !== undefined) {
         await tx.postTag.deleteMany({ where: { postId: id } });
@@ -173,7 +151,6 @@ export const deletePost = async (req: AuthRequest, res: Response, next: NextFunc
       return;
     }
 
-    // PostTag rows are deleted automatically via the onDelete: Cascade rule in schema.prisma
     await prisma.post.delete({ where: { id } });
 
     res.json({ success: true, message: 'Post deleted successfully.' });
@@ -181,6 +158,3 @@ export const deletePost = async (req: AuthRequest, res: Response, next: NextFunc
     next(error);
   }
 };
-
-// Suppress unused variable warning for unused helper
-void buildTagsConnect;

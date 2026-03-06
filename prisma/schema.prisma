@@ -16,6 +16,8 @@ model User {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  posts Post[]
+
   @@map("users")
 }
 
@@ -52,6 +54,9 @@ model Post {
 
   categoryId Int      @map("category_id")
   category   Category @relation(fields: [categoryId], references: [id])
+
+  authorId   Int      @map("author_id")
+  author     User     @relation(fields: [authorId], references: [id])
 
   tags PostTag[]
 
