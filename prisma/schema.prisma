@@ -43,14 +43,21 @@ model Tag {
   @@map("tags")
 }
 
+enum PostStatus {
+  draft
+  pending
+  published
+}
+
 model Post {
-  id         Int      @id @default(autoincrement())
+  id         Int        @id @default(autoincrement())
   title      String
-  slug       String   @unique
+  slug       String     @unique
   cover      String?
   body       String
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  status     PostStatus @default(draft)
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
 
   categoryId Int      @map("category_id")
   category   Category @relation(fields: [categoryId], references: [id])

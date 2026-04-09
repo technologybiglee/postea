@@ -15,9 +15,9 @@ const PORT = process.env.PORT ?? 3000;
 // ─── CORS configuration ───────────────────────────────────────────────────────
 // Public routes allow any origin so that external sites can embed posts freely.
 // Private (admin) routes are restricted to the origins listed in .env.
-const allowedAdminOrigins = (process.env.CORS_ALLOWED_ORIGINS ?? '')
+const allowedAdminOrigins = (process.env.CORS_ALLOWED_ORIGINS ?? 'http://localhost:4200')
   .split(',')
-  .map((o) => o.trim())
+  .map((o) => o.trim().replace(/\/$/, ''))
   .filter(Boolean);
 
 const publicCors = cors({ origin: '*' });

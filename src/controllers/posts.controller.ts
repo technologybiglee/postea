@@ -1,7 +1,10 @@
 import { Response, NextFunction } from 'express';
+import { PostStatus } from '@prisma/client';
 import { prisma } from '../prisma/client';
 import { AuthRequest } from '../types';
 import { generateSlug } from '../utils/slug';
+
+const VALID_STATUSES: PostStatus[] = ['draft', 'pending', 'published'];
 
 const POST_INCLUDE = {
   category: { select: { id: true, name: true } },
@@ -53,16 +56,22 @@ export const createPost = async (req: AuthRequest, res: Response, next: NextFunc
   try {
     const authorId = req.user!.userId;
 
-    const { title, cover, body, categoryId, tagIds = [] } = req.body as {
+    const { title, cover, body, categoryId, tagIds = [], status = 'draft' } = req.body as {
       title: string;
       cover?: string;
       body: string;
       categoryId: number;
       tagIds?: number[];
+      status?: PostStatus;
     };
 
     if (!title || !body || !categoryId) {
       res.status(400).json({ success: false, error: 'title, body and categoryId are required.' });
+      return;
+    }
+
+    if (!VALID_STATUSES.includes(status)) {
+      res.status(400).json({ success: false, error: `status must be one of: ${VALID_STATUSES.join(', ')}.` });
       return;
     }
 
@@ -74,6 +83,7 @@ export const createPost = async (req: AuthRequest, res: Response, next: NextFunc
         slug,
         cover,
         body,
+        status,
         category: { connect: { id: Number(categoryId) } },
         author:   { connect: { id: authorId } },
         tags: {
@@ -94,13 +104,19 @@ export const createPost = async (req: AuthRequest, res: Response, next: NextFunc
 export const updatePost = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = Number(req.params.id);
-    const { title, cover, body, categoryId, tagIds } = req.body as {
+    const { title, cover, body, categoryId, tagIds, status } = req.body as {
       title?: string;
       cover?: string;
       body?: string;
       categoryId?: number;
       tagIds?: number[];
+      status?: PostStatus;
     };
+
+    if (status !== undefined && !VALID_STATUSES.includes(status)) {
+      res.status(400).json({ success: false, error: `status must be one of: ${VALID_STATUSES.join(', ')}.` });
+      return;
+    }
 
     const existing = await prisma.post.findUnique({ where: { id } });
     if (!existing) {
@@ -122,6 +138,7 @@ export const updatePost = async (req: AuthRequest, res: Response, next: NextFunc
           slug,
           ...(cover !== undefined && { cover }),
           ...(body && { body }),
+          ...(status && { status }),
           ...(categoryId && { category: { connect: { id: Number(categoryId) } } }),
           ...(tagIds !== undefined && {
             tags: {
