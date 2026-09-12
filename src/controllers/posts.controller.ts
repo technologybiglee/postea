@@ -21,11 +21,38 @@ const flattenTags = (post: { tags: { tag: { id: number; name: string } }[] }) =>
   tags: post.tags.map((pt) => pt.tag),
 });
 
+/**
+ * Verifies that a category and/or tags belong to the given company, so a
+ * user from one company can't link a post to another company's category or
+ * tags by guessing IDs. Returns an error message, or null if everything is
+ * owned by `companyId`.
+ */
+const checkOwnership = async (
+  companyId: number,
+  categoryId: number | undefined,
+  tagIds: number[] | undefined,
+): Promise<string | null> => {
+  if (categoryId !== undefined) {
+    const category = await prisma.category.findFirst({ where: { id: Number(categoryId), companyId } });
+    if (!category) return 'Invalid categoryId.';
+  }
+
+  if (tagIds !== undefined && tagIds.length > 0) {
+    const validCount = await prisma.tag.count({ where: { id: { in: tagIds }, companyId } });
+    if (validCount !== tagIds.length) return 'One or more tagIds are invalid.';
+  }
+
+  return null;
+};
+
 // ─── Controllers ──────────────────────────────────────────────────────────────
 
-export const getAllPosts = async (_req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
+export const getAllPosts = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const companyId = req.user!.companyId;
+
     const posts = await prisma.post.findMany({
+      where: { companyId },
       include: POST_INCLUDE,
       orderBy: { createdAt: 'desc' },
     });
@@ -38,9 +65,13 @@ export const getAllPosts = async (_req: AuthRequest, res: Response, next: NextFu
 
 export const getPostById = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const companyId = req.user!.companyId;
     const id = Number(req.params.id);
 
-    const post = await prisma.post.findUnique({ where: { id }, include: POST_INCLUDE });
+    const post = await prisma.post.findFirst({
+      where: { id, companyId },
+      include: POST_INCLUDE,
+    });
     if (!post) {
       res.status(404).json({ success: false, error: 'Post not found.' });
       return;
@@ -55,8 +86,9 @@ export const getPostById = async (req: AuthRequest, res: Response, next: NextFun
 export const createPost = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const authorId = req.user!.userId;
+    const companyId = req.user!.companyId;
 
-    const { title, cover, body, categoryId, tagIds = [], status = 'draft' } = req.body as {
+    const { title, cover, body, categoryId, tagIds = [], status } = req.body as {
       title: string;
       cover?: string;
       body: string;
@@ -70,10 +102,21 @@ export const createPost = async (req: AuthRequest, res: Response, next: NextFunc
       return;
     }
 
-    if (!VALID_STATUSES.includes(status)) {
+    if (status !== undefined && !VALID_STATUSES.includes(status)) {
       res.status(400).json({ success: false, error: `status must be one of: ${VALID_STATUSES.join(', ')}.` });
       return;
     }
+
+    const ownershipError = await checkOwnership(companyId, categoryId, tagIds);
+    if (ownershipError) {
+      res.status(400).json({ success: false, error: ownershipError });
+      return;
+    }
+
+    // Fall back to the company's configured default status when the caller
+    // doesn't specify one.
+    const resolvedStatus =
+      status ?? (await prisma.companySettings.findUnique({ where: { companyId } }))?.defaultPostStatus ?? 'draft';
 
     const slug = generateSlug(title);
 
@@ -83,7 +126,8 @@ export const createPost = async (req: AuthRequest, res: Response, next: NextFunc
         slug,
         cover,
         body,
-        status,
+        status: resolvedStatus,
+        company:  { connect: { id: companyId } },
         category: { connect: { id: Number(categoryId) } },
         author:   { connect: { id: authorId } },
         tags: {
@@ -103,6 +147,7 @@ export const createPost = async (req: AuthRequest, res: Response, next: NextFunc
 
 export const updatePost = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const companyId = req.user!.companyId;
     const id = Number(req.params.id);
     const { title, cover, body, categoryId, tagIds, status } = req.body as {
       title?: string;
@@ -118,9 +163,15 @@ export const updatePost = async (req: AuthRequest, res: Response, next: NextFunc
       return;
     }
 
-    const existing = await prisma.post.findUnique({ where: { id } });
+    const existing = await prisma.post.findFirst({ where: { id, companyId } });
     if (!existing) {
       res.status(404).json({ success: false, error: 'Post not found.' });
+      return;
+    }
+
+    const ownershipError = await checkOwnership(companyId, categoryId, tagIds);
+    if (ownershipError) {
+      res.status(400).json({ success: false, error: ownershipError });
       return;
     }
 
@@ -160,9 +211,10 @@ export const updatePost = async (req: AuthRequest, res: Response, next: NextFunc
 
 export const deletePost = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const companyId = req.user!.companyId;
     const id = Number(req.params.id);
 
-    const existing = await prisma.post.findUnique({ where: { id } });
+    const existing = await prisma.post.findFirst({ where: { id, companyId } });
     if (!existing) {
       res.status(404).json({ success: false, error: 'Post not found.' });
       return;

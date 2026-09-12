@@ -2,7 +2,6 @@ import { Request, Response, NextFunction } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma/client';
 
-// Explicit payload type — avoids relying on TS server cache of the generated include types
 type PublicPostPayload = Prisma.PostGetPayload<{
   include: {
     category: { select: { id: true; name: true } };
@@ -27,7 +26,27 @@ const include = {
 };
 
 /**
- * GET /api/public/posts
+ * Middleware: resolves the company from :companySlug and stores its id in res.locals.
+ */
+export const resolveCompany = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const companySlug = String(req.params['companySlug']);
+    const company = await prisma.company.findUnique({ where: { slug: companySlug } });
+
+    if (!company) {
+      res.status(404).json({ success: false, error: 'Company not found.' });
+      return;
+    }
+
+    res.locals.companyId = company.id;
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/public/companies/:companySlug/posts
  *
  * Optional query params:
  *   - category: category name (e.g. ?category=javascript)
@@ -37,6 +56,8 @@ const include = {
  */
 export const getPublicPosts = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const companyId = res.locals.companyId as number;
+
     const category = typeof req.query.category === 'string' ? req.query.category : undefined;
     const tag      = typeof req.query.tag      === 'string' ? req.query.tag      : undefined;
     const page     = Math.max(1, Number(req.query.page)  || 1);
@@ -44,6 +65,8 @@ export const getPublicPosts = async (req: Request, res: Response, next: NextFunc
     const skip     = (page - 1) * limit;
 
     const where: Prisma.PostWhereInput = {
+      companyId,
+      status: 'published',
       ...(category && { category: { name: { equals: category, mode: 'insensitive' } } }),
       ...(tag      && { tags:     { some: { tag: { name: { equals: tag, mode: 'insensitive' } } } } }),
     };
@@ -66,15 +89,17 @@ export const getPublicPosts = async (req: Request, res: Response, next: NextFunc
 };
 
 /**
- * GET /api/public/posts/:slug
- *
- * Returns the full detail of a single post identified by its slug.
+ * GET /api/public/companies/:companySlug/posts/:slug
  */
 export const getPublicPostBySlug = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const companyId = res.locals.companyId as number;
     const slug = String(req.params['slug']);
 
-    const raw = await prisma.post.findUnique({ where: { slug }, include });
+    const raw = await prisma.post.findFirst({
+      where: { companyId, slug, status: 'published' },
+      include,
+    });
 
     if (!raw) {
       res.status(404).json({ success: false, error: 'Post not found.' });

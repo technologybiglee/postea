@@ -1,10 +1,9 @@
 import { Router } from 'express';
-import { getPublicPosts, getPublicPostBySlug } from '../controllers/public.controller';
+import { resolveCompany, getPublicPosts, getPublicPostBySlug } from '../controllers/public.controller';
 
 const router = Router();
 
-// No authentication required — these routes are meant for external consumers
-router.get('/posts', getPublicPosts);
-router.get('/posts/:slug', getPublicPostBySlug);
+router.get('/companies/:companySlug/posts', resolveCompany, getPublicPosts);
+router.get('/companies/:companySlug/posts/:slug', resolveCompany, getPublicPostBySlug);
 
 export default router;

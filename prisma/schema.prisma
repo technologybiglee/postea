@@ -8,38 +8,75 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Company {
+  id        Int      @id @default(autoincrement())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  settings   CompanySettings?
+  users      User[]
+  posts      Post[]
+  categories Category[]
+  tags       Tag[]
+
+  @@map("companies")
+}
+
+model CompanySettings {
+  id                Int        @id @default(autoincrement())
+  companyId         Int        @unique @map("company_id")
+  allowedOrigins    String[]   @default([]) @map("allowed_origins")
+  defaultPostStatus PostStatus @default(draft) @map("default_post_status")
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@map("company_settings")
+}
+
 model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
   password  String
   name      String
+  companyId Int      @map("company_id")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  posts Post[]
+  company Company @relation(fields: [companyId], references: [id])
+  posts   Post[]
 
   @@map("users")
 }
 
 model Category {
   id        Int      @id @default(autoincrement())
-  name      String   @unique
+  name      String
+  companyId Int      @map("company_id")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  posts Post[]
+  company Company @relation(fields: [companyId], references: [id])
+  posts   Post[]
 
+  @@unique([companyId, name])
   @@map("categories")
 }
 
 model Tag {
   id        Int      @id @default(autoincrement())
-  name      String   @unique
+  name      String
+  companyId Int      @map("company_id")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  posts PostTag[]
+  company Company @relation(fields: [companyId], references: [id])
+  posts   PostTag[]
 
+  @@unique([companyId, name])
   @@map("tags")
 }
 
@@ -52,29 +89,30 @@ enum PostStatus {
 model Post {
   id         Int        @id @default(autoincrement())
   title      String
-  slug       String     @unique
+  slug       String
   cover      String?
   body       String
   status     PostStatus @default(draft)
+  companyId  Int        @map("company_id")
   createdAt  DateTime   @default(now()) @map("created_at")
   updatedAt  DateTime   @updatedAt @map("updated_at")
 
   categoryId Int      @map("category_id")
   category   Category @relation(fields: [categoryId], references: [id])
 
-  authorId   Int      @map("author_id")
-  author     User     @relation(fields: [authorId], references: [id])
+  authorId Int  @map("author_id")
+  author   User @relation(fields: [authorId], references: [id])
 
-  tags PostTag[]
+  company Company @relation(fields: [companyId], references: [id])
+  tags    PostTag[]
 
+  @@unique([companyId, slug])
   @@map("posts")
 }
 
-// Explicit join table for Post <-> Tag (many-to-many)
-// Using an explicit model allows us to add extra fields later (e.g. order, featured)
 model PostTag {
-  postId Int  @map("post_id")
-  tagId  Int  @map("tag_id")
+  postId Int @map("post_id")
+  tagId  Int @map("tag_id")
 
   post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
   tag  Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)

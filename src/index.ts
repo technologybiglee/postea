@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.routes';
 import postsRoutes from './routes/posts.routes';
 import categoriesRoutes from './routes/categories.routes';
 import tagsRoutes from './routes/tags.routes';
+import companiesRoutes from './routes/companies.routes';
 import publicRoutes from './routes/public.routes';
 import { errorHandler, notFound } from './middlewares/error.middleware';
 
@@ -24,7 +25,6 @@ const publicCors = cors({ origin: '*' });
 
 const adminCors = cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (e.g. curl, Postman, server-to-server)
     if (!origin) return callback(null, true);
     if (allowedAdminOrigins.includes(origin)) return callback(null, true);
     callback(new Error(`Origin ${origin} not allowed by CORS policy.`));
@@ -43,6 +43,9 @@ app.use('/api/public', publicCors, publicRoutes);
 
 // Auth routes: apply admin CORS (login from the admin panel only)
 app.use('/api/auth', adminCors, authRoutes);
+
+// Company management (POST / is public onboarding; /me/* requires auth)
+app.use('/api/companies', adminCors, companiesRoutes);
 
 // Private admin routes
 app.use('/api/posts', adminCors, postsRoutes);

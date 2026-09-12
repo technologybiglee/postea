@@ -3,9 +3,9 @@ import { Request } from 'express';
 export interface JwtPayload {
   userId: number;
   email: string;
+  companyId: number;
 }
 
-// Extends Express Request to carry the authenticated user data
 export interface AuthRequest extends Request {
   user?: JwtPayload;
 }
