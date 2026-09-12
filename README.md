@@ -98,6 +98,19 @@ npm run dev
 
 ---
 
+## Documentación interactiva (Swagger)
+
+Con el servidor corriendo (`npm run dev` o `npm start`), la API expone su spec OpenAPI 3 y una UI para explorar y ejecutar cada endpoint directamente desde el navegador:
+
+- **Swagger UI**: http://localhost:3000/api/docs
+- **Spec JSON** (para importar en Postman/Insomnia): http://localhost:3000/api/docs.json
+
+Para probar endpoints privados desde la UI: hacé login en `POST /api/auth/login`, copiá el `token` de la respuesta y pegalo en el botón **Authorize** (arriba a la derecha) como `Bearer <token>`.
+
+El spec vive en [`src/docs/openapi.json`](src/docs/openapi.json) y se actualiza a mano junto con las rutas/controladores.
+
+---
+
 ## Endpoints
 
 ### Autenticación

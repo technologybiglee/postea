@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import swaggerUi from 'swagger-ui-express';
 import { prisma } from './prisma/client';
 import authRoutes from './routes/auth.routes';
 import postsRoutes from './routes/posts.routes';
@@ -9,6 +10,7 @@ import tagsRoutes from './routes/tags.routes';
 import companiesRoutes from './routes/companies.routes';
 import publicRoutes from './routes/public.routes';
 import { errorHandler, notFound } from './middlewares/error.middleware';
+import openapiDocument from './docs/openapi.json';
 
 const app = express();
 const PORT = process.env.PORT ?? 3000;
@@ -56,6 +58,11 @@ app.use('/api/tags', adminCors, tagsRoutes);
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// ─── API documentation (Swagger UI over the OpenAPI 3 spec) ──────────────────
+// Served same-origin, so "Try it out" requests hit this API directly without CORS issues.
+app.get('/api/docs.json', (_req, res) => res.json(openapiDocument));
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openapiDocument));
 
 // ─── Error handling ───────────────────────────────────────────────────────────
 app.use(notFound);
