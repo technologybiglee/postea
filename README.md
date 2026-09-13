@@ -210,7 +210,19 @@ El rol `super_admin` no se puede auto-asignar por registro público: el primer s
 | DELETE | `/api/posts/:id` | Eliminar post          |
 
 
-**Crear post** — body de ejemplo:
+**Crear post** — subiendo la imagen de portada (`multipart/form-data`, se guarda en Supabase Storage bajo la carpeta de la empresa):
+
+```bash
+curl -X POST "$API_BASE_URL/api/posts" \
+  -H "Authorization: Bearer <token>" \
+  -F "title=Mi primer post" \
+  -F "body=<p>Contenido del post en HTML o texto.</p>" \
+  -F "categoryId=1" \
+  -F "tagIds=[1,2,3]" \
+  -F "cover=@/ruta/a/imagen.jpg;type=image/jpeg"
+```
+
+Alternativa: pasar una URL ya alojada en otro lado como string en `cover`, igual que antes (no se sube ningún archivo):
 
 ```json
 {
@@ -221,6 +233,8 @@ El rol `super_admin` no se puede auto-asignar por registro público: el primer s
   "tagIds": [1, 2, 3]
 }
 ```
+
+`PUT /api/posts/:id` acepta el mismo `multipart/form-data` para reemplazar la portada (el archivo anterior se borra del bucket).
 
 
 

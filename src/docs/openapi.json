@@ -601,7 +601,7 @@
                 "required": ["title", "body", "categoryId"],
                 "properties": {
                   "title": { "type": "string" },
-                  "cover": { "type": "string" },
+                  "cover": { "type": "string", "description": "URL ya alojada (alternativa a subir un archivo)." },
                   "body": { "type": "string" },
                   "categoryId": { "type": "integer" },
                   "tagIds": { "type": "array", "items": { "type": "integer" } },
@@ -609,6 +609,20 @@
                 }
               },
               "example": { "title": "Hola mundo", "body": "Contenido del post...", "categoryId": 1, "tagIds": [1, 2] }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": ["title", "body", "categoryId"],
+                "properties": {
+                  "title": { "type": "string" },
+                  "cover": { "type": "string", "format": "binary", "description": "Imagen de portada (jpeg/png/webp, max 5MB)." },
+                  "body": { "type": "string" },
+                  "categoryId": { "type": "integer" },
+                  "tagIds": { "type": "string", "description": "Array de ids en JSON, ej. \"[1,2]\"." },
+                  "status": { "$ref": "#/components/schemas/PostStatus" }
+                }
+              }
             }
           }
         },
@@ -673,10 +687,23 @@
                 "type": "object",
                 "properties": {
                   "title": { "type": "string" },
-                  "cover": { "type": "string" },
+                  "cover": { "type": "string", "description": "URL ya alojada (alternativa a subir un archivo)." },
                   "body": { "type": "string" },
                   "categoryId": { "type": "integer" },
                   "tagIds": { "type": "array", "items": { "type": "integer" } },
+                  "status": { "$ref": "#/components/schemas/PostStatus" }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string" },
+                  "cover": { "type": "string", "format": "binary", "description": "Imagen de portada (jpeg/png/webp, max 5MB). Reemplaza la anterior." },
+                  "body": { "type": "string" },
+                  "categoryId": { "type": "integer" },
+                  "tagIds": { "type": "string", "description": "Array de ids en JSON, ej. \"[1,2]\"." },
                   "status": { "$ref": "#/components/schemas/PostStatus" }
                 }
               }

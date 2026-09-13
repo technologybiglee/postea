@@ -196,6 +196,9 @@ npx prisma migrate deploy
 | `NODE_ENV` | Global | Entorno (`development` / `production`). |
 | `CORS_ALLOWED_ORIGINS` | Global | Origenes permitidos para rutas admin (separados por coma). |
 | `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` / `SUPER_ADMIN_NAME` | Global (solo seed) | Credenciales para el bootstrap del primer super admin via `npx prisma db seed`. Opcional: si faltan, el seed no hace nada. |
+| `SUPABASE_URL` | Global | URL del proyecto Supabase (mismo proyecto que `DATABASE_URL`). Dashboard > Settings > API > Project URL. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Global | Clave service_role de Supabase, usada server-side para subir/borrar portadas en Storage. Secreta, nunca se expone al cliente. |
+| `SUPABASE_STORAGE_BUCKET` | Global | Nombre del bucket de Storage para portadas de posts. Opcional (default: `post-covers`). |
 
 ## Base de datos: Supabase
 
@@ -207,3 +210,13 @@ Puntos importantes:
 - **Data API (PostgREST) deshabilitada**: como Prisma es el unico acceso a la base, hay que apagar la Data API desde el dashboard del proyecto (Settings > API > Data API > desactivar). Esto es lo que evita que las tablas queden expuestas via el API publica de Supabase con la anon key — la alternativa (dejarla prendida y agregar políticas de Row Level Security a las 8 tablas) es mas trabajo para el mismo resultado en una app que no la necesita.
 - **RLS**: por eso mismo, no hace falta habilitar Row Level Security en las tablas — el aislamiento multi-tenant ya lo hace la app via `companyId`, y con la Data API apagada no hay otra via de acceso a la base mas que Prisma.
 - **Migraciones**: las 4 migraciones existentes (`init`, `add_author_to_post`, `add_post_status`, `add_multi_tenant_company`) ya estan aplicadas en el proyecto Supabase de `api-post`. Migraciones nuevas se aplican con `npx prisma migrate deploy` contra ese mismo `DATABASE_URL`.
+
+## Storage de imagenes: Supabase Storage
+
+Las portadas de posts (`Post.cover`) se pueden subir directamente a la API (`multipart/form-data` en `POST`/`PUT /api/posts`), que las guarda en un bucket de **Supabase Storage** del mismo proyecto usado para la base de datos.
+
+- **Bucket unico, publico**: un solo bucket (`post-covers` por defecto, `SUPABASE_STORAGE_BUCKET`) creado manualmente en el dashboard de Supabase (Storage > New bucket > marcar "Public"). No se autocrea en runtime — es un paso de infraestructura de una sola vez, igual que la configuracion de la Data API descrita mas arriba. Al ser portadas de un blog, el caso de uso normal ya es que sean publicas, por eso se usa `getPublicUrl` en vez de signed URLs.
+- **Aislamiento por empresa via path, no via bucket**: dentro del bucket, cada objeto se guarda bajo `{companyId}/{uuid}-{nombre}`. El `companyId` siempre sale del JWT del usuario autenticado (nunca del body), asi que dos empresas nunca pueden pisar o leer la carpeta de la otra — el mismo principio de aislamiento a nivel de aplicacion que ya se usa para las tablas (`companyId` en vez de RLS), aplicado ahora tambien al Storage.
+- **Service role key**: la subida/borrado de objetos se hace server-side con la `SUPABASE_SERVICE_ROLE_KEY` (secreta, nunca se envia al cliente), no con Auth de Supabase ni con una sesion de usuario.
+- **No entra en conflicto con la Data API/RLS deshabilitada**: Storage y la Data API (PostgREST) son productos separados de Supabase. Tener el bucket de Storage publico solo expone los archivos de portada que cada empresa decide subir (ya pensados para ser publicos), no expone ninguna tabla ni fila de Postgres — la Data API sigue apagada y el aislamiento de los *datos* sigue dependiendo unicamente de `companyId`, sin cambios.
+- **Reemplazo de portada**: al actualizar un post con una portada nueva, la portada anterior se borra del bucket de forma best-effort (no bloquea la respuesta si el borrado falla). Si `cover` fue seteado alguna vez como una URL externa (flujo JSON, sin subir archivo), esa URL nunca se toca al borrar, porque no pertenece a este bucket.

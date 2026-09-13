@@ -3,8 +3,28 @@ import { PostStatus } from '@prisma/client';
 import { prisma } from '../prisma/client';
 import { AuthRequest } from '../types';
 import { generateSlug } from '../utils/slug';
+import { uploadCoverToStorage, deleteCoverFromStorage } from '../utils/storage';
 
 const VALID_STATUSES: PostStatus[] = ['draft', 'pending', 'published'];
+
+/**
+ * `tagIds` arrives as a real array over JSON, but as a JSON-encoded string
+ * when the request is multipart/form-data (multer only parses text fields
+ * as strings). Normalizes both shapes; throws a plain Error with a clear
+ * message on malformed input, which the controllers turn into a 400.
+ */
+const parseTagIds = (tagIds: unknown): number[] | undefined => {
+  if (tagIds === undefined) return undefined;
+  if (typeof tagIds !== 'string') return tagIds as number[];
+
+  try {
+    const parsed = JSON.parse(tagIds);
+    if (!Array.isArray(parsed)) throw new Error();
+    return parsed;
+  } catch {
+    throw new Error('tagIds must be a JSON array of numbers.');
+  }
+};
 
 export const POST_INCLUDE = {
   category: { select: { id: true, name: true } },
@@ -88,14 +108,21 @@ export const createPost = async (req: AuthRequest, res: Response, next: NextFunc
     const authorId = req.user!.userId;
     const companyId = req.user!.companyId as number;
 
-    const { title, cover, body, categoryId, tagIds = [], status } = req.body as {
+    const { title, cover, body, categoryId, status } = req.body as {
       title: string;
       cover?: string;
       body: string;
       categoryId: number;
-      tagIds?: number[];
       status?: PostStatus;
     };
+
+    let tagIds: number[];
+    try {
+      tagIds = parseTagIds(req.body.tagIds) ?? [];
+    } catch (error) {
+      res.status(400).json({ success: false, error: (error as Error).message });
+      return;
+    }
 
     if (!title || !body || !categoryId) {
       res.status(400).json({ success: false, error: 'title, body and categoryId are required.' });
@@ -118,13 +145,17 @@ export const createPost = async (req: AuthRequest, res: Response, next: NextFunc
     const resolvedStatus =
       status ?? (await prisma.companySettings.findUnique({ where: { companyId } }))?.defaultPostStatus ?? 'draft';
 
+    // An uploaded file takes priority over a plain `cover` URL string, so
+    // existing JSON-based clients keep working unchanged.
+    const resolvedCover = req.file ? await uploadCoverToStorage(companyId, req.file) : cover;
+
     const slug = generateSlug(title);
 
     const post = await prisma.post.create({
       data: {
         title,
         slug,
-        cover,
+        cover: resolvedCover,
         body,
         status: resolvedStatus,
         company:  { connect: { id: companyId } },
@@ -149,14 +180,21 @@ export const updatePost = async (req: AuthRequest, res: Response, next: NextFunc
   try {
     const companyId = req.user!.companyId as number;
     const id = Number(req.params.id);
-    const { title, cover, body, categoryId, tagIds, status } = req.body as {
+    const { title, cover, body, categoryId, status } = req.body as {
       title?: string;
       cover?: string;
       body?: string;
       categoryId?: number;
-      tagIds?: number[];
       status?: PostStatus;
     };
+
+    let tagIds: number[] | undefined;
+    try {
+      tagIds = parseTagIds(req.body.tagIds);
+    } catch (error) {
+      res.status(400).json({ success: false, error: (error as Error).message });
+      return;
+    }
 
     if (status !== undefined && !VALID_STATUSES.includes(status)) {
       res.status(400).json({ success: false, error: `status must be one of: ${VALID_STATUSES.join(', ')}.` });
@@ -177,6 +215,10 @@ export const updatePost = async (req: AuthRequest, res: Response, next: NextFunc
 
     const slug = title && title !== existing.title ? generateSlug(title) : existing.slug;
 
+    // An uploaded file takes priority over a plain `cover` URL string, so
+    // existing JSON-based clients keep working unchanged.
+    const resolvedCover = req.file ? await uploadCoverToStorage(companyId, req.file) : cover;
+
     const post = await prisma.$transaction(async (tx) => {
       if (tagIds !== undefined) {
         await tx.postTag.deleteMany({ where: { postId: id } });
@@ -187,7 +229,7 @@ export const updatePost = async (req: AuthRequest, res: Response, next: NextFunc
         data: {
           ...(title && { title }),
           slug,
-          ...(cover !== undefined && { cover }),
+          ...(resolvedCover !== undefined && { cover: resolvedCover }),
           ...(body && { body }),
           ...(status && { status }),
           ...(categoryId && { category: { connect: { id: Number(categoryId) } } }),
@@ -202,6 +244,11 @@ export const updatePost = async (req: AuthRequest, res: Response, next: NextFunc
         include: POST_INCLUDE,
       });
     });
+
+    // Best-effort cleanup of the replaced cover image; never blocks the response.
+    if (resolvedCover !== undefined && existing.cover && existing.cover !== resolvedCover) {
+      await deleteCoverFromStorage(existing.cover);
+    }
 
     res.json({ success: true, data: flattenTags(post) });
   } catch (error) {

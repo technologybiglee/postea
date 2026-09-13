@@ -1,5 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
 import { Prisma } from '@prisma/client';
+import multer from 'multer';
+import { StorageError } from '../utils/storage';
+import { InvalidFileTypeError } from './upload.middleware';
 
 /**
  * Global error handler. Must be registered LAST in the Express middleware chain
@@ -31,6 +34,24 @@ export const errorHandler = (
   // Prisma: validation error (wrong types passed to ORM)
   if (err instanceof Prisma.PrismaClientValidationError) {
     res.status(400).json({ success: false, error: 'Invalid data format.' });
+    return;
+  }
+
+  // Multer: oversized file, wrong field name, etc.
+  if (err instanceof multer.MulterError) {
+    res.status(400).json({ success: false, error: `Upload error: ${err.message}` });
+    return;
+  }
+
+  // fileFilter rejection (disallowed mimetype).
+  if (err instanceof InvalidFileTypeError) {
+    res.status(err.status).json({ success: false, error: err.message });
+    return;
+  }
+
+  // Supabase Storage failure (network/config/bucket errors).
+  if (err instanceof StorageError) {
+    res.status(err.status).json({ success: false, error: err.message });
     return;
   }
 

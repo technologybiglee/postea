@@ -8,6 +8,7 @@ import {
 } from '../controllers/posts.controller';
 import { authenticate } from '../middlewares/auth.middleware';
 import { requireCompanyUser } from '../middlewares/authorize.middleware';
+import { uploadCoverImage } from '../middlewares/upload.middleware';
 
 const router = Router();
 
@@ -17,8 +18,8 @@ router.use(requireCompanyUser);
 
 router.get('/', getAllPosts);
 router.get('/:id', getPostById);
-router.post('/', createPost);
-router.put('/:id', updatePost);
+router.post('/', uploadCoverImage, createPost);
+router.put('/:id', uploadCoverImage, updatePost);
 router.delete('/:id', deletePost);
 
 export default router;
