@@ -1,17 +1,19 @@
-# API Post — REST API con Node.js, Express, Prisma y PostgreSQL
+# Postea — REST API con Node.js, Express, Prisma y PostgreSQL
 
 API REST lista para producción para gestionar posts de blog con autenticación JWT, categorías, tags y endpoints públicos para incrustar contenido en sitios externos.
 
 ## Stack
 
-| Tecnología | Versión |
-|---|---|
-| Node.js | 20 |
-| TypeScript | 5.x |
-| Express | 4.x |
-| Prisma ORM | 5.x |
-| PostgreSQL | Supabase (Postgres 17 administrado) |
+
+| Tecnología       | Versión                               |
+| ---------------- | ------------------------------------- |
+| Node.js          | 20                                    |
+| TypeScript       | 5.x                                   |
+| Express          | 4.x                                   |
+| Prisma ORM       | 5.x                                   |
+| PostgreSQL       | Supabase (Postgres 17 administrado)   |
 | Docker / Compose | — (opcional, solo para correr la API) |
+
 
 ---
 
@@ -52,6 +54,8 @@ api-post/
 
 ---
 
+
+
 ## Puesta en marcha
 
 La base de datos vive en Supabase (Postgres administrado) — ya no hace falta levantar Postgres localmente. El repo ya trae un proyecto Supabase creado y migrado (`api-post`, org Biglee); para apuntar a él o a uno propio:
@@ -65,6 +69,8 @@ cp .env.example .env
 #    Usar el rol "prisma" (no el superusuario "postgres" por defecto) — ver docs/README.md.
 ```
 
+
+
 ### Con Docker (opcional, solo para correr la API)
 
 ```bash
@@ -73,6 +79,8 @@ docker compose exec api npx prisma migrate deploy
 
 # La API estará disponible en http://localhost:3000
 ```
+
+
 
 ### Sin Docker (desarrollo local)
 
@@ -95,40 +103,54 @@ Es idempotente: si ya existe un usuario con ese email, no hace nada. Sin este pa
 
 ---
 
+
+
 ## Variables de entorno
 
-| Variable | Descripción | Ejemplo |
-|---|---|---|
-| `DATABASE_URL` | Cadena de conexión al Postgres de Supabase (Session Pooler) | `postgres://prisma.[ref]:[pass]@aws-0-[region].pooler.supabase.com:5432/postgres?sslmode=require` |
-| `JWT_SECRET` | Clave secreta para firmar tokens | cadena larga y aleatoria |
-| `JWT_EXPIRES_IN` | Duración del token | `7d` |
-| `PORT` | Puerto del servidor | `3000` |
-| `CORS_ALLOWED_ORIGINS` | Orígenes permitidos para rutas privadas | `http://localhost:3000` |
-| `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` / `SUPER_ADMIN_NAME` | Credenciales para crear el primer super admin (`npx prisma db seed`). Opcional, se puede dejar vacío. | ver `.env.example` |
+
+| Variable                                                          | Descripción                                                                                           | Ejemplo                                                                                           |
+| ----------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                                                    | Cadena de conexión al Postgres de Supabase (Session Pooler)                                           | `postgres://prisma.[ref]:[pass]@aws-0-[region].pooler.supabase.com:5432/postgres?sslmode=require` |
+| `JWT_SECRET`                                                      | Clave secreta para firmar tokens                                                                      | cadena larga y aleatoria                                                                          |
+| `JWT_EXPIRES_IN`                                                  | Duración del token                                                                                    | `7d`                                                                                              |
+| `PORT`                                                            | Puerto del servidor                                                                                   | `3000`                                                                                            |
+| `CORS_ALLOWED_ORIGINS`                                            | Orígenes permitidos para rutas privadas                                                               | `http://localhost:3000`                                                                           |
+| `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` / `SUPER_ADMIN_NAME` | Credenciales para crear el primer super admin (`npx prisma db seed`). Opcional, se puede dejar vacío. | ver `.env.example`                                                                                |
+
 
 ---
+
+
 
 ## Documentación interactiva (Swagger)
 
 Con el servidor corriendo (`npm run dev` o `npm start`), la API expone su spec OpenAPI 3 y una UI para explorar y ejecutar cada endpoint directamente desde el navegador:
 
-- **Swagger UI**: http://localhost:3000/api/docs
-- **Spec JSON** (para importar en Postman/Insomnia): http://localhost:3000/api/docs.json
+- **Swagger UI**: [http://localhost:3000/api/docs](http://localhost:3000/api/docs)
+- **Spec JSON** (para importar en Postman/Insomnia): [http://localhost:3000/api/docs.json](http://localhost:3000/api/docs.json)
 
 Para probar endpoints privados desde la UI: hacé login en `POST /api/auth/login`, copiá el `token` de la respuesta y pegalo en el botón **Authorize** (arriba a la derecha) como `Bearer <token>`.
 
-El spec vive en [`src/docs/openapi.json`](src/docs/openapi.json) y se actualiza a mano junto con las rutas/controladores.
+El spec vive en `[src/docs/openapi.json](src/docs/openapi.json)` y se actualiza a mano junto con las rutas/controladores.
 
 ---
 
+
+
 ## Endpoints
+
+
 
 ### Autenticación
 
-| Método | Ruta | Descripción |
-|---|---|---|
-| POST | `/api/auth/register` | Registrar nuevo usuario |
-| POST | `/api/auth/login` | Iniciar sesión y obtener JWT |
+
+| Método | Ruta                 | Descripción                  |
+| ------ | -------------------- | ---------------------------- |
+| POST   | `/api/auth/register` | Registrar nuevo usuario      |
+| POST   | `/api/auth/login`    | Iniciar sesión y obtener JWT |
+
+
+
 
 #### Ejemplos
 
@@ -146,39 +168,50 @@ curl -X POST http://localhost:3000/api/auth/login \
 
 ---
 
+
+
 ### Gestión de empresas y super admin
 
-| Método | Ruta | Descripción |
-|---|---|---|
-| POST | `/api/companies` | Crear empresa — **requiere token de super admin** |
-| GET | `/api/companies/me` | Obtener la empresa del usuario autenticado |
-| PUT | `/api/companies/me` | Actualizar la empresa del usuario autenticado |
-| GET | `/api/companies/me/settings` | Obtener configuración de la empresa |
-| PUT | `/api/companies/me/settings` | Actualizar configuración de la empresa |
-| GET | `/api/admin/companies` | Listar **todas** las empresas — solo super admin |
-| GET | `/api/admin/companies/:id` | Ver una empresa — solo super admin |
-| GET | `/api/admin/users` | Listar **todos** los usuarios de todas las empresas — solo super admin |
-| GET | `/api/admin/users/:id` | Ver un usuario — solo super admin |
-| GET | `/api/admin/posts` | Listar **todos** los posts de todas las empresas — solo super admin |
-| GET | `/api/admin/posts/:id` | Ver un post — solo super admin |
 
-El rol `super_admin` no se puede auto-asignar por registro público: el primer super admin se crea con `npx prisma db seed` (ver [`docs/README.md`](docs/README.md#bootstrap-del-super-admin) para el detalle). Una vez logueado, su JWT trae `role: "super_admin"` y `companyId: null`.
+| Método | Ruta                         | Descripción                                                            |
+| ------ | ---------------------------- | ---------------------------------------------------------------------- |
+| POST   | `/api/companies`             | Crear empresa — **requiere token de super admin**                      |
+| GET    | `/api/companies/me`          | Obtener la empresa del usuario autenticado                             |
+| PUT    | `/api/companies/me`          | Actualizar la empresa del usuario autenticado                          |
+| GET    | `/api/companies/me/settings` | Obtener configuración de la empresa                                    |
+| PUT    | `/api/companies/me/settings` | Actualizar configuración de la empresa                                 |
+| GET    | `/api/admin/companies`       | Listar **todas** las empresas — solo super admin                       |
+| GET    | `/api/admin/companies/:id`   | Ver una empresa — solo super admin                                     |
+| GET    | `/api/admin/users`           | Listar **todos** los usuarios de todas las empresas — solo super admin |
+| GET    | `/api/admin/users/:id`       | Ver un usuario — solo super admin                                      |
+| GET    | `/api/admin/posts`           | Listar **todos** los posts de todas las empresas — solo super admin    |
+| GET    | `/api/admin/posts/:id`       | Ver un post — solo super admin                                         |
+
+
+El rol `super_admin` no se puede auto-asignar por registro público: el primer super admin se crea con `npx prisma db seed` (ver `[docs/README.md](docs/README.md#bootstrap-del-super-admin)` para el detalle). Una vez logueado, su JWT trae `role: "super_admin"` y `companyId: null`.
 
 ---
 
+
+
 ### Rutas privadas (requieren `Authorization: Bearer <token>`)
+
+
 
 #### Posts
 
-| Método | Ruta | Descripción |
-|---|---|---|
-| GET | `/api/posts` | Listar todos los posts |
-| GET | `/api/posts/:id` | Obtener post por ID |
-| POST | `/api/posts` | Crear post |
-| PUT | `/api/posts/:id` | Actualizar post |
-| DELETE | `/api/posts/:id` | Eliminar post |
+
+| Método | Ruta             | Descripción            |
+| ------ | ---------------- | ---------------------- |
+| GET    | `/api/posts`     | Listar todos los posts |
+| GET    | `/api/posts/:id` | Obtener post por ID    |
+| POST   | `/api/posts`     | Crear post             |
+| PUT    | `/api/posts/:id` | Actualizar post        |
+| DELETE | `/api/posts/:id` | Eliminar post          |
+
 
 **Crear post** — body de ejemplo:
+
 ```json
 {
   "title": "Mi primer post",
@@ -189,34 +222,48 @@ El rol `super_admin` no se puede auto-asignar por registro público: el primer s
 }
 ```
 
+
+
 #### Categorías
 
-| Método | Ruta | Descripción |
-|---|---|---|
-| GET | `/api/categories` | Listar categorías |
-| GET | `/api/categories/:id` | Obtener categoría |
-| POST | `/api/categories` | Crear categoría |
-| PUT | `/api/categories/:id` | Actualizar categoría |
-| DELETE | `/api/categories/:id` | Eliminar categoría |
+
+| Método | Ruta                  | Descripción          |
+| ------ | --------------------- | -------------------- |
+| GET    | `/api/categories`     | Listar categorías    |
+| GET    | `/api/categories/:id` | Obtener categoría    |
+| POST   | `/api/categories`     | Crear categoría      |
+| PUT    | `/api/categories/:id` | Actualizar categoría |
+| DELETE | `/api/categories/:id` | Eliminar categoría   |
+
+
+
 
 #### Tags
 
-| Método | Ruta | Descripción |
-|---|---|---|
-| GET | `/api/tags` | Listar tags |
-| GET | `/api/tags/:id` | Obtener tag |
-| POST | `/api/tags` | Crear tag |
-| PUT | `/api/tags/:id` | Actualizar tag |
-| DELETE | `/api/tags/:id` | Eliminar tag |
+
+| Método | Ruta            | Descripción    |
+| ------ | --------------- | -------------- |
+| GET    | `/api/tags`     | Listar tags    |
+| GET    | `/api/tags/:id` | Obtener tag    |
+| POST   | `/api/tags`     | Crear tag      |
+| PUT    | `/api/tags/:id` | Actualizar tag |
+| DELETE | `/api/tags/:id` | Eliminar tag   |
+
 
 ---
 
+
+
 ### Rutas públicas (sin autenticación, CORS: `*`)
 
-| Método | Ruta | Descripción |
-|---|---|---|
-| GET | `/api/public/posts` | Listar posts con filtros opcionales |
-| GET | `/api/public/posts/:slug` | Obtener post por slug |
+
+| Método | Ruta                      | Descripción                         |
+| ------ | ------------------------- | ----------------------------------- |
+| GET    | `/api/public/posts`       | Listar posts con filtros opcionales |
+| GET    | `/api/public/posts/:slug` | Obtener post por slug               |
+
+
+
 
 #### Filtros disponibles
 
@@ -226,6 +273,8 @@ GET /api/public/posts?tag=node
 GET /api/public/posts?page=2&limit=5
 GET /api/public/posts?category=javascript&tag=backend&page=1&limit=10
 ```
+
+
 
 #### Respuesta paginada
 
@@ -244,6 +293,8 @@ GET /api/public/posts?category=javascript&tag=backend&page=1&limit=10
 
 ---
 
+
+
 ## Incrustar posts en otro sitio
 
 Dado que `/api/public/*` tiene CORS abierto (`*`), puedes consumirlo desde cualquier frontend:
@@ -259,6 +310,8 @@ const { data } = await post.json();
 ```
 
 ---
+
+
 
 ## Tests
 
@@ -285,3 +338,4 @@ npx prisma generate
 # Resetear la BD (¡cuidado! contra Supabase esto borra datos reales, no un contenedor descartable)
 npx prisma migrate reset
 ```
+

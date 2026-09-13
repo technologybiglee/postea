@@ -1,7 +1,7 @@
 {
   "openapi": "3.0.3",
   "info": {
-    "title": "API Post",
+    "title": "Postea",
     "description": "REST API multiempresa (multi-tenant) para blogs: posts, categorias, tags y autenticacion JWT, con endpoints publicos de lectura por empresa.",
     "version": "1.0.0"
   },

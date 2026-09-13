@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: api-post
+    name: postea
     runtime: docker
     dockerfilePath: ./Dockerfile
     dockerContext: .

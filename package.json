@@ -1,5 +1,5 @@
 {
-  "name": "api-post",
+  "name": "postea",
   "version": "1.0.0",
   "description": "REST API for blog posts with JWT auth, Prisma ORM and PostgreSQL",
   "main": "dist/index.js",
