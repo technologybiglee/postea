@@ -25,7 +25,7 @@ Post    *──* Tag  (via PostTag)
 |--------|-------------|-------------|
 | `Company` | Tenant raiz. Tiene `name` y `slug` (unico global). | -- |
 | `CompanySettings` | Configuracion operativa por empresa (1:1 con Company). | Por empresa |
-| `User` | Administrador. Pertenece a una sola empresa via `companyId`. Email unico global. | Por empresa |
+| `User` | Administrador. Tiene un `role` (`user` o `super_admin`). Un `user` pertenece a una sola empresa via `companyId`; un `super_admin` no pertenece a ninguna empresa (`companyId` es `null`). Email unico global. | Por empresa (`user`) / Global (`super_admin`) |
 | `Post` | Articulo. Slug unico dentro de la empresa (`@@unique([companyId, slug])`). | Por empresa |
 | `Category` | Clasificacion. Nombre unico dentro de la empresa (`@@unique([companyId, name])`). | Por empresa |
 | `Tag` | Etiqueta. Nombre unico dentro de la empresa (`@@unique([companyId, name])`). | Por empresa |
@@ -90,36 +90,63 @@ DELETE /api/tags/:id
 ```
 
 1. El usuario se autentica con `POST /api/auth/login`.
-2. El JWT contiene `userId`, `email` y `companyId`.
+2. El JWT contiene `userId`, `email`, `companyId` y `role`.
 3. Cada endpoint admin extrae `companyId` del token y filtra todas las queries.
 4. Las operaciones de lectura usan `findFirst({ where: { id, companyId } })` para verificar pertenencia.
 5. Las operaciones de escritura asocian el recurso a la empresa del usuario.
+6. Estas rutas (posts, categories, tags) requieren un usuario con `companyId` no nulo (middleware `requireCompanyUser`); un `super_admin` (sin empresa) recibe `403` si intenta usarlas — tiene su propia superficie de solo lectura en `/api/admin` (ver mas abajo).
 
 ### Gestion de Empresa
 
 ```
-POST   /api/companies              (sin auth — flujo de onboarding)
-GET    /api/companies/me            (auth requerida)
-PUT    /api/companies/me            (auth requerida)
-GET    /api/companies/me/settings   (auth requerida)
-PUT    /api/companies/me/settings   (auth requerida)
+POST   /api/companies              (requiere super admin)
+GET    /api/companies/me            (auth requerida, usuario de empresa)
+PUT    /api/companies/me            (auth requerida, usuario de empresa)
+GET    /api/companies/me/settings   (auth requerida, usuario de empresa)
+PUT    /api/companies/me/settings   (auth requerida, usuario de empresa)
 ```
 
-- `POST /api/companies` crea una nueva empresa con su `CompanySettings` inicial. No requiere autenticacion para permitir el flujo de alta.
-- Los endpoints `/me` operan sobre la empresa del usuario autenticado.
+- `POST /api/companies` crea una nueva empresa con su `CompanySettings` inicial. Requiere un JWT de un usuario con `role = super_admin` (middleware `requireSuperAdmin`); un usuario normal o una request sin token reciben `403`/`401` respectivamente.
+- Los endpoints `/me` operan sobre la empresa del usuario autenticado y requieren `companyId` no nulo (`requireCompanyUser`) — no aplican a un super admin.
+
+### Super Admin
+
+```
+GET /api/admin/companies       (requiere super admin)
+GET /api/admin/companies/:id   (requiere super admin)
+GET /api/admin/users           (requiere super admin)
+GET /api/admin/users/:id       (requiere super admin)
+GET /api/admin/posts           (requiere super admin)
+GET /api/admin/posts/:id       (requiere super admin)
+```
+
+- Superficie de **solo lectura** que expone datos de **todas** las empresas sin filtrar por `companyId` (a diferencia del resto de la API admin, que siempre aisla por tenant).
+- Protegida por `authenticate` + `requireSuperAdmin` (`src/middlewares/authorize.middleware.ts`).
+- `GET /api/admin/users` nunca incluye el campo `password`.
+- El primer super admin se crea con el seed de Prisma (ver "Bootstrap del super admin" mas abajo); no hay endpoint publico para auto-asignarse el rol.
 
 ## Reglas de Aislamiento
 
-1. **Datos**: todas las tablas de contenido (`Post`, `Category`, `Tag`) tienen `company_id` NOT NULL con FK a `companies`.
+1. **Datos**: todas las tablas de contenido (`Post`, `Category`, `Tag`) tienen `company_id` NOT NULL con FK a `companies`. `User.company_id` es la unica columna de tenant que es nullable (para permitir super admins sin empresa).
 2. **Unicidades**: slugs de posts, nombres de categorias y nombres de tags son unicos dentro de cada empresa, no globalmente.
 3. **Lectura admin**: `findFirst({ where: { id, companyId } })` asegura que un usuario no pueda leer recursos de otra empresa por ID.
 4. **Escritura admin**: `companyId` se inyecta desde el JWT, no desde el body. El cliente no puede elegir a que empresa escribir.
 5. **Relaciones al crear/actualizar posts**: `categoryId` y `tagIds` se validan contra `companyId` antes de conectarlos (`checkOwnership` en `posts.controller.ts`), para que un post no pueda enlazarse a una categoria o tag de otra empresa.
 6. **API publica**: solo expone posts con `status = 'published'` de la empresa indicada por `companySlug`.
+7. **Super admin**: es la unica excepcion deliberada al aislamiento por tenant — solo a traves de los endpoints de solo lectura en `/api/admin`, nunca en las rutas normales de posts/categories/tags/companies.
+
+## Bootstrap del super admin
+
+No existe registro publico para el rol `super_admin` (evita que cualquiera se auto-asigne el rol). Se crea con un seed de Prisma:
+
+1. Configurar en `.env`: `SUPER_ADMIN_EMAIL`, `SUPER_ADMIN_PASSWORD`, `SUPER_ADMIN_NAME`.
+2. Correr `npx prisma db seed`.
+3. El script (`prisma/seed.ts`) es idempotente: si el email ya existe, no hace nada; si las variables no estan configuradas, no hace nada.
+4. Loguearse con `POST /api/auth/login` usando esas credenciales para obtener un JWT con `role: "super_admin"`.
 
 ## Rate limiting
 
-Los endpoints de autenticacion (`/api/auth/register`, `/api/auth/login`) y el alta de empresas (`POST /api/companies`, publico) usan un limitador simple en memoria por IP (`src/middlewares/rateLimit.middleware.ts`) para frenar fuerza bruta y spam de registros. Es apto para una sola instancia; si la API llega a correr en varias replicas, hay que moverlo a un store compartido (Redis).
+Los endpoints de autenticacion (`/api/auth/register`, `/api/auth/login`) usan un limitador simple en memoria por IP (`src/middlewares/rateLimit.middleware.ts`) para frenar fuerza bruta y spam de registros. Es apto para una sola instancia; si la API llega a correr en varias replicas, hay que moverlo a un store compartido (Redis). `POST /api/companies` ya no lleva rate limiting propio: al requerir autenticacion de super admin, el vector de spam anonimo que ese limitador mitigaba dejo de existir.
 
 ## Estrategia de Migracion
 
@@ -150,12 +177,12 @@ npx prisma migrate deploy
 
 ## Flujo de Onboarding (nueva empresa)
 
-1. Crear empresa: `POST /api/companies` con `{ "name": "Mi Empresa" }`.
+1. Un **super admin** logueado crea la empresa: `POST /api/companies` (con su token Bearer) con `{ "name": "Mi Empresa" }`.
    - Opcionalmente se puede pasar `"slug": "mi-empresa"`.
    - Retorna la empresa con su `id` y `settings`.
-2. Registrar primer usuario: `POST /api/auth/register` con `{ "email": "...", "password": "...", "name": "...", "companyId": <id> }`.
+2. Registrar primer usuario: `POST /api/auth/register` con `{ "email": "...", "password": "...", "name": "...", "companyId": <id> }` (sigue sin requerir autenticacion — solo necesita conocer el `companyId` recien creado).
 3. Login: `POST /api/auth/login` con `{ "email": "...", "password": "..." }`.
-   - Retorna token JWT con `companyId` incluido.
+   - Retorna token JWT con `companyId` y `role` incluidos.
 4. Usar el token para gestionar posts, categorias, tags y settings de la empresa.
 
 ## Variables de Entorno
@@ -168,6 +195,7 @@ npx prisma migrate deploy
 | `PORT` | Global | Puerto del servidor (default: `3000`). |
 | `NODE_ENV` | Global | Entorno (`development` / `production`). |
 | `CORS_ALLOWED_ORIGINS` | Global | Origenes permitidos para rutas admin (separados por coma). |
+| `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` / `SUPER_ADMIN_NAME` | Global (solo seed) | Credenciales para el bootstrap del primer super admin via `npx prisma db seed`. Opcional: si faltan, el seed no hace nada. |
 
 ## Base de datos: Supabase
 

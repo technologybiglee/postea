@@ -7,22 +7,16 @@ import {
   updateMyCompanySettings,
 } from '../controllers/companies.controller';
 import { authenticate } from '../middlewares/auth.middleware';
-import { rateLimit } from '../middlewares/rateLimit.middleware';
+import { requireSuperAdmin, requireCompanyUser } from '../middlewares/authorize.middleware';
 
 const router = Router();
 
-// Public onboarding endpoint — throttle to prevent spam sign-ups.
-const createCompanyLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000,
-  max: 5,
-  message: 'Too many companies created from this address. Please try again later.',
-});
+// Company creation is restricted to super admins.
+router.post('/', authenticate, requireSuperAdmin, createCompany);
 
-router.post('/', createCompanyLimiter, createCompany);
-
-router.get('/me', authenticate, getMyCompany);
-router.put('/me', authenticate, updateMyCompany);
-router.get('/me/settings', authenticate, getMyCompanySettings);
-router.put('/me/settings', authenticate, updateMyCompanySettings);
+router.get('/me', authenticate, requireCompanyUser, getMyCompany);
+router.put('/me', authenticate, requireCompanyUser, updateMyCompany);
+router.get('/me/settings', authenticate, requireCompanyUser, getMyCompanySettings);
+router.put('/me/settings', authenticate, requireCompanyUser, updateMyCompanySettings);
 
 export default router;

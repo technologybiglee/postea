@@ -37,16 +37,22 @@ model CompanySettings {
   @@map("company_settings")
 }
 
+enum UserRole {
+  user
+  super_admin
+}
+
 model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
   password  String
   name      String
-  companyId Int      @map("company_id")
+  role      UserRole @default(user)
+  companyId Int?     @map("company_id")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  company Company @relation(fields: [companyId], references: [id])
+  company Company? @relation(fields: [companyId], references: [id])
   posts   Post[]
 
   @@map("users")

@@ -15,7 +15,8 @@
     { "name": "Posts", "description": "CRUD de posts (requiere autenticacion)" },
     { "name": "Categories", "description": "CRUD de categorias (requiere autenticacion)" },
     { "name": "Tags", "description": "CRUD de tags (requiere autenticacion)" },
-    { "name": "Public", "description": "Lectura publica de posts publicados, sin autenticacion" }
+    { "name": "Public", "description": "Lectura publica de posts publicados, sin autenticacion" },
+    { "name": "Admin", "description": "Solo lectura, cross-tenant. Requiere un usuario con role=super_admin" }
   ],
   "components": {
     "securitySchemes": {
@@ -30,6 +31,11 @@
       "PostStatus": {
         "type": "string",
         "enum": ["draft", "pending", "published"]
+      },
+      "UserRole": {
+        "type": "string",
+        "enum": ["user", "super_admin"],
+        "description": "'user' pertenece a una empresa (companyId no nulo). 'super_admin' no pertenece a ninguna (companyId null) y solo se crea via seed."
       },
       "ApiError": {
         "type": "object",
@@ -74,7 +80,8 @@
           "id": { "type": "integer" },
           "email": { "type": "string", "format": "email" },
           "name": { "type": "string" },
-          "companyId": { "type": "integer" },
+          "role": { "$ref": "#/components/schemas/UserRole" },
+          "companyId": { "type": "integer", "nullable": true, "description": "null para un super_admin." },
           "createdAt": { "type": "string", "format": "date-time" }
         }
       },
@@ -87,11 +94,14 @@
             "properties": {
               "id": { "type": "integer" },
               "email": { "type": "string", "format": "email" },
-              "name": { "type": "string" }
+              "name": { "type": "string" },
+              "role": { "$ref": "#/components/schemas/UserRole" }
             }
           },
           "company": {
             "type": "object",
+            "nullable": true,
+            "description": "null cuando el usuario es un super_admin.",
             "properties": {
               "id": { "type": "integer" },
               "name": { "type": "string" },
@@ -190,6 +200,62 @@
           "limit": { "type": "integer" },
           "totalPages": { "type": "integer" }
         }
+      },
+      "AdminCompany": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Company" },
+          {
+            "type": "object",
+            "properties": {
+              "_count": {
+                "type": "object",
+                "properties": {
+                  "users": { "type": "integer" },
+                  "posts": { "type": "integer" }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "AdminUser": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "email": { "type": "string", "format": "email" },
+          "name": { "type": "string" },
+          "role": { "$ref": "#/components/schemas/UserRole" },
+          "companyId": { "type": "integer", "nullable": true },
+          "company": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "id": { "type": "integer" },
+              "name": { "type": "string" },
+              "slug": { "type": "string" }
+            }
+          },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "updatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "AdminPost": {
+        "allOf": [
+          { "$ref": "#/components/schemas/Post" },
+          {
+            "type": "object",
+            "properties": {
+              "company": {
+                "type": "object",
+                "properties": {
+                  "id": { "type": "integer" },
+                  "name": { "type": "string" },
+                  "slug": { "type": "string" }
+                }
+              }
+            }
+          }
+        ]
       }
     },
     "responses": {
@@ -199,6 +265,10 @@
       },
       "Unauthorized": {
         "description": "Falta token o token invalido/expirado.",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
+      },
+      "Forbidden": {
+        "description": "El usuario autenticado no tiene permisos para esta accion (por ejemplo, no es super_admin, o es un super_admin sin empresa intentando usar un endpoint de tenant).",
         "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
       },
       "NotFound": {
@@ -328,8 +398,9 @@
     "/api/companies": {
       "post": {
         "tags": ["Companies"],
-        "summary": "Crear una empresa (onboarding, sin autenticacion)",
-        "description": "Limitado a 5 creaciones por hora por IP. Crea tambien un CompanySettings por defecto.",
+        "summary": "Crear una empresa (requiere super admin)",
+        "description": "Restringido a usuarios con role=super_admin. Crea tambien un CompanySettings por defecto.",
+        "security": [{ "bearerAuth": [] }],
         "requestBody": {
           "required": true,
           "content": {
@@ -362,7 +433,8 @@
             }
           },
           "400": { "$ref": "#/components/responses/BadRequest" },
-          "429": { "$ref": "#/components/responses/TooManyRequests" }
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
         }
       }
     },
@@ -387,6 +459,7 @@
             }
           },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" }
         }
       },
@@ -421,7 +494,8 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
         }
       }
     },
@@ -446,6 +520,7 @@
             }
           },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" }
         }
       },
@@ -484,7 +559,8 @@
             }
           },
           "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
         }
       }
     },
@@ -508,7 +584,8 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
         }
       },
       "post": {
@@ -551,7 +628,8 @@
             }
           },
           "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
         }
       }
     },
@@ -579,6 +657,7 @@
             }
           },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" }
         }
       },
@@ -621,6 +700,7 @@
           },
           "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" }
         }
       },
@@ -634,6 +714,7 @@
             "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiMessage" } } }
           },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" }
         }
       }
@@ -658,7 +739,8 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
         }
       },
       "post": {
@@ -690,7 +772,8 @@
             }
           },
           "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
         }
       }
     },
@@ -718,6 +801,7 @@
             }
           },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" }
         }
       },
@@ -750,6 +834,7 @@
           },
           "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" }
         }
       },
@@ -763,6 +848,7 @@
             "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiMessage" } } }
           },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" }
         }
       }
@@ -787,7 +873,8 @@
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
         }
       },
       "post": {
@@ -819,7 +906,8 @@
             }
           },
           "400": { "$ref": "#/components/responses/BadRequest" },
-          "401": { "$ref": "#/components/responses/Unauthorized" }
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
         }
       }
     },
@@ -847,6 +935,7 @@
             }
           },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" }
         }
       },
@@ -879,6 +968,7 @@
           },
           "400": { "$ref": "#/components/responses/BadRequest" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" }
         }
       },
@@ -892,6 +982,170 @@
             "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiMessage" } } }
           },
           "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/admin/companies": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Listar todas las empresas (todas las tenants)",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Lista de empresas.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/AdminCompany" } }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/api/admin/companies/{id}": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Obtener una empresa por id",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Empresa encontrada.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/AdminCompany" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/admin/users": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Listar todos los usuarios de todas las empresas",
+        "description": "Nunca incluye el campo password.",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Lista de usuarios.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/AdminUser" } }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/api/admin/users/{id}": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Obtener un usuario por id",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Usuario encontrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/AdminUser" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/admin/posts": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Listar todos los posts de todas las empresas",
+        "security": [{ "bearerAuth": [] }],
+        "responses": {
+          "200": {
+            "description": "Lista de posts.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/AdminPost" } }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/api/admin/posts/{id}": {
+      "get": {
+        "tags": ["Admin"],
+        "summary": "Obtener un post por id",
+        "security": [{ "bearerAuth": [] }],
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Post encontrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean", "example": true },
+                    "data": { "$ref": "#/components/schemas/AdminPost" }
+                  }
+                }
+              }
+            }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" }
         }
       }

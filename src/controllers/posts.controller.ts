@@ -6,7 +6,7 @@ import { generateSlug } from '../utils/slug';
 
 const VALID_STATUSES: PostStatus[] = ['draft', 'pending', 'published'];
 
-const POST_INCLUDE = {
+export const POST_INCLUDE = {
   category: { select: { id: true, name: true } },
   author: { select: { id: true, name: true, email: true } },
   tags: {
@@ -16,7 +16,7 @@ const POST_INCLUDE = {
   },
 } as const;
 
-const flattenTags = (post: { tags: { tag: { id: number; name: string } }[] }) => ({
+export const flattenTags = (post: { tags: { tag: { id: number; name: string } }[] }) => ({
   ...post,
   tags: post.tags.map((pt) => pt.tag),
 });
@@ -49,7 +49,7 @@ const checkOwnership = async (
 
 export const getAllPosts = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const companyId = req.user!.companyId;
+    const companyId = req.user!.companyId as number;
 
     const posts = await prisma.post.findMany({
       where: { companyId },
@@ -65,7 +65,7 @@ export const getAllPosts = async (req: AuthRequest, res: Response, next: NextFun
 
 export const getPostById = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const companyId = req.user!.companyId;
+    const companyId = req.user!.companyId as number;
     const id = Number(req.params.id);
 
     const post = await prisma.post.findFirst({
@@ -86,7 +86,7 @@ export const getPostById = async (req: AuthRequest, res: Response, next: NextFun
 export const createPost = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const authorId = req.user!.userId;
-    const companyId = req.user!.companyId;
+    const companyId = req.user!.companyId as number;
 
     const { title, cover, body, categoryId, tagIds = [], status } = req.body as {
       title: string;
@@ -147,7 +147,7 @@ export const createPost = async (req: AuthRequest, res: Response, next: NextFunc
 
 export const updatePost = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const companyId = req.user!.companyId;
+    const companyId = req.user!.companyId as number;
     const id = Number(req.params.id);
     const { title, cover, body, categoryId, tagIds, status } = req.body as {
       title?: string;
@@ -211,7 +211,7 @@ export const updatePost = async (req: AuthRequest, res: Response, next: NextFunc
 
 export const deletePost = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const companyId = req.user!.companyId;
+    const companyId = req.user!.companyId as number;
     const id = Number(req.params.id);
 
     const existing = await prisma.post.findFirst({ where: { id, companyId } });

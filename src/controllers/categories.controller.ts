@@ -4,7 +4,7 @@ import { AuthRequest } from '../types';
 
 export const getAllCategories = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const companyId = req.user!.companyId;
+    const companyId = req.user!.companyId as number;
 
     const categories = await prisma.category.findMany({
       where: { companyId },
@@ -18,7 +18,7 @@ export const getAllCategories = async (req: AuthRequest, res: Response, next: Ne
 
 export const getCategoryById = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const companyId = req.user!.companyId;
+    const companyId = req.user!.companyId as number;
     const id = Number(req.params.id);
 
     const category = await prisma.category.findFirst({ where: { id, companyId } });
@@ -34,7 +34,7 @@ export const getCategoryById = async (req: AuthRequest, res: Response, next: Nex
 
 export const createCategory = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const companyId = req.user!.companyId;
+    const companyId = req.user!.companyId as number;
     const { name } = req.body as { name: string };
 
     if (!name) {
@@ -50,7 +50,7 @@ export const createCategory = async (req: AuthRequest, res: Response, next: Next
 
 export const updateCategory = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const companyId = req.user!.companyId;
+    const companyId = req.user!.companyId as number;
     const id = Number(req.params.id);
     const { name } = req.body as { name: string };
 
@@ -74,7 +74,7 @@ export const updateCategory = async (req: AuthRequest, res: Response, next: Next
 
 export const deleteCategory = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const companyId = req.user!.companyId;
+    const companyId = req.user!.companyId as number;
     const id = Number(req.params.id);
 
     const existing = await prisma.category.findFirst({ where: { id, companyId } });

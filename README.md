@@ -84,6 +84,15 @@ npm run dev
 
 `prisma migrate deploy` (no `migrate dev`) porque las migraciones ya están escritas y versionadas en el repo — contra una base compartida no se generan migraciones nuevas al vuelo.
 
+### Crear el primer super admin (una sola vez)
+
+```bash
+# Completa SUPER_ADMIN_EMAIL / SUPER_ADMIN_PASSWORD / SUPER_ADMIN_NAME en .env
+npx prisma db seed
+```
+
+Es idempotente: si ya existe un usuario con ese email, no hace nada. Sin este paso, nadie puede crear empresas (`POST /api/companies` requiere ser super admin).
+
 ---
 
 ## Variables de entorno
@@ -95,6 +104,7 @@ npm run dev
 | `JWT_EXPIRES_IN` | Duración del token | `7d` |
 | `PORT` | Puerto del servidor | `3000` |
 | `CORS_ALLOWED_ORIGINS` | Orígenes permitidos para rutas privadas | `http://localhost:3000` |
+| `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD` / `SUPER_ADMIN_NAME` | Credenciales para crear el primer super admin (`npx prisma db seed`). Opcional, se puede dejar vacío. | ver `.env.example` |
 
 ---
 
@@ -133,6 +143,26 @@ curl -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@example.com","password":"secreto123"}'
 ```
+
+---
+
+### Gestión de empresas y super admin
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| POST | `/api/companies` | Crear empresa — **requiere token de super admin** |
+| GET | `/api/companies/me` | Obtener la empresa del usuario autenticado |
+| PUT | `/api/companies/me` | Actualizar la empresa del usuario autenticado |
+| GET | `/api/companies/me/settings` | Obtener configuración de la empresa |
+| PUT | `/api/companies/me/settings` | Actualizar configuración de la empresa |
+| GET | `/api/admin/companies` | Listar **todas** las empresas — solo super admin |
+| GET | `/api/admin/companies/:id` | Ver una empresa — solo super admin |
+| GET | `/api/admin/users` | Listar **todos** los usuarios de todas las empresas — solo super admin |
+| GET | `/api/admin/users/:id` | Ver un usuario — solo super admin |
+| GET | `/api/admin/posts` | Listar **todos** los posts de todas las empresas — solo super admin |
+| GET | `/api/admin/posts/:id` | Ver un post — solo super admin |
+
+El rol `super_admin` no se puede auto-asignar por registro público: el primer super admin se crea con `npx prisma db seed` (ver [`docs/README.md`](docs/README.md#bootstrap-del-super-admin) para el detalle). Una vez logueado, su JWT trae `role: "super_admin"` y `companyId: null`.
 
 ---
 

@@ -7,10 +7,12 @@ import {
   deleteTag,
 } from '../controllers/tags.controller';
 import { authenticate } from '../middlewares/auth.middleware';
+import { requireCompanyUser } from '../middlewares/authorize.middleware';
 
 const router = Router();
 
 router.use(authenticate);
+router.use(requireCompanyUser);
 
 router.get('/', getAllTags);
 router.get('/:id', getTagById);

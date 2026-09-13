@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { Response, NextFunction } from 'express';
 import { PostStatus } from '@prisma/client';
 import slugify from 'slugify';
 import { prisma } from '../prisma/client';
@@ -7,9 +7,9 @@ import { AuthRequest } from '../types';
 const VALID_STATUSES: PostStatus[] = ['draft', 'pending', 'published'];
 
 /**
- * POST /api/companies  (no auth — onboarding flow)
+ * POST /api/companies  (super admin only)
  */
-export const createCompany = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+export const createCompany = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const { name, slug: rawSlug } = req.body as { name: string; slug?: string };
 
@@ -47,7 +47,7 @@ export const createCompany = async (req: Request, res: Response, next: NextFunct
  */
 export const getMyCompany = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const companyId = req.user!.companyId;
+    const companyId = req.user!.companyId as number;
 
     const company = await prisma.company.findUnique({
       where: { id: companyId },
@@ -70,7 +70,7 @@ export const getMyCompany = async (req: AuthRequest, res: Response, next: NextFu
  */
 export const updateMyCompany = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const companyId = req.user!.companyId;
+    const companyId = req.user!.companyId as number;
     const { name } = req.body as { name?: string };
 
     const company = await prisma.company.update({
@@ -90,7 +90,7 @@ export const updateMyCompany = async (req: AuthRequest, res: Response, next: Nex
  */
 export const getMyCompanySettings = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const companyId = req.user!.companyId;
+    const companyId = req.user!.companyId as number;
 
     const settings = await prisma.companySettings.findUnique({ where: { companyId } });
 
@@ -110,7 +110,7 @@ export const getMyCompanySettings = async (req: AuthRequest, res: Response, next
  */
 export const updateMyCompanySettings = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const companyId = req.user!.companyId;
+    const companyId = req.user!.companyId as number;
     const { allowedOrigins, defaultPostStatus } = req.body as {
       allowedOrigins?: string[];
       defaultPostStatus?: PostStatus;

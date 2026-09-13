@@ -4,7 +4,7 @@ import { AuthRequest } from '../types';
 
 export const getAllTags = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const companyId = req.user!.companyId;
+    const companyId = req.user!.companyId as number;
 
     const tags = await prisma.tag.findMany({
       where: { companyId },
@@ -18,7 +18,7 @@ export const getAllTags = async (req: AuthRequest, res: Response, next: NextFunc
 
 export const getTagById = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const companyId = req.user!.companyId;
+    const companyId = req.user!.companyId as number;
     const id = Number(req.params.id);
 
     const tag = await prisma.tag.findFirst({ where: { id, companyId } });
@@ -34,7 +34,7 @@ export const getTagById = async (req: AuthRequest, res: Response, next: NextFunc
 
 export const createTag = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const companyId = req.user!.companyId;
+    const companyId = req.user!.companyId as number;
     const { name } = req.body as { name: string };
 
     if (!name) {
@@ -50,7 +50,7 @@ export const createTag = async (req: AuthRequest, res: Response, next: NextFunct
 
 export const updateTag = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const companyId = req.user!.companyId;
+    const companyId = req.user!.companyId as number;
     const id = Number(req.params.id);
     const { name } = req.body as { name: string };
 
@@ -74,7 +74,7 @@ export const updateTag = async (req: AuthRequest, res: Response, next: NextFunct
 
 export const deleteTag = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const companyId = req.user!.companyId;
+    const companyId = req.user!.companyId as number;
     const id = Number(req.params.id);
 
     const existing = await prisma.tag.findFirst({ where: { id, companyId } });

@@ -40,7 +40,7 @@ export const register = async (req: Request, res: Response, next: NextFunction):
 
     const user = await prisma.user.create({
       data: { email, password: hashedPassword, name, companyId: company.id },
-      select: { id: true, email: true, name: true, companyId: true, createdAt: true },
+      select: { id: true, email: true, name: true, role: true, companyId: true, createdAt: true },
     });
 
     res.status(201).json({ success: true, data: user });
@@ -77,7 +77,7 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
     const expiresIn = process.env.JWT_EXPIRES_IN ?? '7d';
 
     const token = jwt.sign(
-      { userId: user.id, email: user.email, companyId: user.companyId },
+      { userId: user.id, email: user.email, companyId: user.companyId, role: user.role },
       secret,
       { expiresIn } as jwt.SignOptions,
     );
@@ -86,7 +86,7 @@ export const login = async (req: Request, res: Response, next: NextFunction): Pr
       success: true,
       data: {
         token,
-        user: { id: user.id, email: user.email, name: user.name },
+        user: { id: user.id, email: user.email, name: user.name, role: user.role },
         company: user.company,
       },
     });

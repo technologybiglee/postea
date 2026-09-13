@@ -8,6 +8,7 @@ import postsRoutes from './routes/posts.routes';
 import categoriesRoutes from './routes/categories.routes';
 import tagsRoutes from './routes/tags.routes';
 import companiesRoutes from './routes/companies.routes';
+import adminRoutes from './routes/admin.routes';
 import publicRoutes from './routes/public.routes';
 import { errorHandler, notFound } from './middlewares/error.middleware';
 import openapiDocument from './docs/openapi.json';
@@ -46,8 +47,11 @@ app.use('/api/public', publicCors, publicRoutes);
 // Auth routes: apply admin CORS (login from the admin panel only)
 app.use('/api/auth', adminCors, authRoutes);
 
-// Company management (POST / is public onboarding; /me/* requires auth)
+// Company management (POST / requires super admin; /me/* requires auth)
 app.use('/api/companies', adminCors, companiesRoutes);
+
+// Super admin: cross-tenant read access to companies, users and posts
+app.use('/api/admin', adminCors, adminRoutes);
 
 // Private admin routes
 app.use('/api/posts', adminCors, postsRoutes);
