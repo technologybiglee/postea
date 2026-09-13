@@ -1154,8 +1154,9 @@
       "get": {
         "tags": ["Public"],
         "summary": "Listar posts publicados de una empresa",
+        "description": "Solo devuelve posts con status \"published\" (los drafts/pending nunca son visibles publicamente). Si la empresa existe pero no tiene posts publicados (o ninguno matchea los filtros), responde 200 con data: [] y meta.total: 0 — NO 404. El 404 ocurre unicamente cuando companySlug no corresponde a ninguna empresa.",
         "parameters": [
-          { "name": "companySlug", "in": "path", "required": true, "schema": { "type": "string" }, "example": "acme-inc" },
+          { "name": "companySlug", "in": "path", "required": true, "schema": { "type": "string" }, "example": "acme-inc", "description": "Slug de la EMPRESA, asignado al crearla via POST /api/companies (slugify del nombre, sin timestamp). No confundir con el slug de un post, que si lleva timestamp (ver el parametro slug del endpoint de detalle)." },
           { "name": "category", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Filtrar por nombre de categoria." },
           { "name": "tag", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Filtrar por nombre de tag." },
           { "name": "page", "in": "query", "required": false, "schema": { "type": "integer", "default": 1 } },
@@ -1177,7 +1178,17 @@
               }
             }
           },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "404": {
+            "description": "No existe ninguna empresa con ese companySlug.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "examples": {
+                  "companyNotFound": { "summary": "Empresa no encontrada", "value": { "success": false, "error": "Company not found." } }
+                }
+              }
+            }
+          }
         }
       }
     },
@@ -1185,9 +1196,10 @@
       "get": {
         "tags": ["Public"],
         "summary": "Obtener un post publicado por slug",
+        "description": "Solo encuentra posts con status \"published\". El slug del post se autogenera como slugify(title)-<timestamp>, por eso normalmente termina en un numero largo (ver ejemplo).",
         "parameters": [
-          { "name": "companySlug", "in": "path", "required": true, "schema": { "type": "string" }, "example": "acme-inc" },
-          { "name": "slug", "in": "path", "required": true, "schema": { "type": "string" }, "example": "hola-mundo" }
+          { "name": "companySlug", "in": "path", "required": true, "schema": { "type": "string" }, "example": "acme-inc", "description": "Slug de la EMPRESA (asignado al crearla via POST /api/companies, sin timestamp). No confundir con el slug de un post." },
+          { "name": "slug", "in": "path", "required": true, "schema": { "type": "string" }, "example": "hola-mundo-1699999999999", "description": "Slug del POST, autogenerado como slugify(title)-<Date.now()> al crearlo." }
         ],
         "responses": {
           "200": {
@@ -1204,7 +1216,18 @@
               }
             }
           },
-          "404": { "$ref": "#/components/responses/NotFound" }
+          "404": {
+            "description": "Puede deberse a dos motivos distintos: la empresa no existe, o la empresa existe pero el post no existe (o no esta publicado) con ese slug.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ApiError" },
+                "examples": {
+                  "companyNotFound": { "summary": "Empresa no encontrada", "value": { "success": false, "error": "Company not found." } },
+                  "postNotFound": { "summary": "Post no encontrado o no publicado", "value": { "success": false, "error": "Post not found." } }
+                }
+              }
+            }
+          }
         }
       }
     }
