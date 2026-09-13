@@ -16,6 +16,16 @@ import openapiDocument from './docs/openapi.json';
 const app = express();
 const PORT = process.env.PORT ?? 3000;
 
+// URL pública base para el "server" del OpenAPI/Swagger: explícita > la que
+// inyecta Render automáticamente > localhost (dev).
+const apiBaseUrl = process.env.API_BASE_URL ?? process.env.RENDER_EXTERNAL_URL ?? `http://localhost:${PORT}`;
+const resolvedOpenapiDocument = {
+  ...openapiDocument,
+  servers: [
+    { url: apiBaseUrl, description: process.env.NODE_ENV === 'production' ? 'Production' : 'development' },
+  ],
+};
+
 // ─── CORS configuration ───────────────────────────────────────────────────────
 // Public routes allow any origin so that external sites can embed posts freely.
 // Private (admin) routes are restricted to the origins listed in .env.
@@ -65,8 +75,8 @@ app.get('/health', (_req, res) => {
 
 // ─── API documentation (Swagger UI over the OpenAPI 3 spec) ──────────────────
 // Served same-origin, so "Try it out" requests hit this API directly without CORS issues.
-app.get('/api/docs.json', (_req, res) => res.json(openapiDocument));
-app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(openapiDocument));
+app.get('/api/docs.json', (_req, res) => res.json(resolvedOpenapiDocument));
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(resolvedOpenapiDocument));
 
 // ─── Error handling ───────────────────────────────────────────────────────────
 app.use(notFound);
