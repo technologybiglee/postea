@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { prisma } from '../prisma/client';
 import { AuthRequest } from '../types';
 import { POST_INCLUDE, flattenTags } from './posts.controller';
+import { publishDuePosts } from '../utils/scheduler';
 
 const ADMIN_POST_INCLUDE = {
   ...POST_INCLUDE,
@@ -89,6 +90,8 @@ export const getUserByIdAdmin = async (req: AuthRequest, res: Response, next: Ne
 
 export const getAllPostsAdmin = async (_req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
+    await publishDuePosts();
+
     const posts = await prisma.post.findMany({
       include: ADMIN_POST_INCLUDE,
       orderBy: { createdAt: 'desc' },
@@ -102,6 +105,8 @@ export const getAllPostsAdmin = async (_req: AuthRequest, res: Response, next: N
 export const getPostByIdAdmin = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = Number(req.params.id);
+
+    await publishDuePosts();
 
     const post = await prisma.post.findUnique({
       where: { id },

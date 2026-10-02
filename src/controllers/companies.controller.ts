@@ -4,6 +4,7 @@ import slugify from 'slugify';
 import { prisma } from '../prisma/client';
 import { AuthRequest } from '../types';
 
+// `scheduled` is left out on purpose: it needs a per-post date, so it can't be a default.
 const VALID_STATUSES: PostStatus[] = ['draft', 'pending', 'published'];
 
 /**

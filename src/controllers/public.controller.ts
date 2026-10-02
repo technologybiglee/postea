@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma/client';
+import { publishDuePosts } from '../utils/scheduler';
 
 type PublicPostPayload = Prisma.PostGetPayload<{
   include: {
@@ -64,6 +65,10 @@ export const getPublicPosts = async (req: Request, res: Response, next: NextFunc
     const limit    = Math.min(50, Math.max(1, Number(req.query.limit) || 10));
     const skip     = (page - 1) * limit;
 
+    // The interval scheduler may not have run yet (e.g. the service just woke
+    // up), so publish anything due before reading.
+    await publishDuePosts(companyId);
+
     const where: Prisma.PostWhereInput = {
       companyId,
       status: 'published',
@@ -72,7 +77,7 @@ export const getPublicPosts = async (req: Request, res: Response, next: NextFunc
     };
 
     const [rawPosts, total] = await Promise.all([
-      prisma.post.findMany({ where, include, orderBy: { createdAt: 'desc' }, skip, take: limit }),
+      prisma.post.findMany({ where, include, orderBy: [{ publishedAt: 'desc' }, { createdAt: 'desc' }], skip, take: limit }),
       prisma.post.count({ where }),
     ]);
 
@@ -95,6 +100,8 @@ export const getPublicPostBySlug = async (req: Request, res: Response, next: Nex
   try {
     const companyId = res.locals.companyId as number;
     const slug = String(req.params['slug']);
+
+    await publishDuePosts(companyId);
 
     const raw = await prisma.post.findFirst({
       where: { companyId, slug, status: 'published' },

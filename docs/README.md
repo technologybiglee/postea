@@ -133,6 +133,7 @@ GET /api/admin/posts/:id       (requiere super admin)
 4. **Escritura admin**: `companyId` se inyecta desde el JWT, no desde el body. El cliente no puede elegir a que empresa escribir.
 5. **Relaciones al crear/actualizar posts**: `categoryId` y `tagIds` se validan contra `companyId` antes de conectarlos (`checkOwnership` en `posts.controller.ts`), para que un post no pueda enlazarse a una categoria o tag de otra empresa.
 6. **API publica**: solo expone posts con `status = 'published'` de la empresa indicada por `companySlug`.
+7. **Posts programados**: un post con `status = 'scheduled'` y `scheduledAt` futuro pasa solo a `published` (con `publishedAt = scheduledAt`) al llegar la fecha. Lo hace `publishDuePosts` (`src/utils/scheduler.ts`), que corre cada minuto dentro de la API y tambien antes de cada lectura publica y del panel, asi que el post aparece a tiempo aunque el servicio de Render free haya estado dormido. `defaultPostStatus` no acepta `scheduled`.
 7. **Super admin**: es la unica excepcion deliberada al aislamiento por tenant — solo a traves de los endpoints de solo lectura en `/api/admin`, nunca en las rutas normales de posts/categories/tags/companies.
 
 ## Bootstrap del super admin

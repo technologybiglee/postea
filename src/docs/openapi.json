@@ -30,7 +30,13 @@
     "schemas": {
       "PostStatus": {
         "type": "string",
-        "enum": ["draft", "pending", "published"]
+        "enum": ["draft", "pending", "scheduled", "published"],
+        "description": "scheduled = programado: se pasa solo a published cuando llega scheduledAt."
+      },
+      "DefaultPostStatus": {
+        "type": "string",
+        "enum": ["draft", "pending", "published"],
+        "description": "Igual que PostStatus pero sin scheduled (requiere una fecha por post)."
       },
       "UserRole": {
         "type": "string",
@@ -69,7 +75,7 @@
           "id": { "type": "integer" },
           "companyId": { "type": "integer" },
           "allowedOrigins": { "type": "array", "items": { "type": "string" } },
-          "defaultPostStatus": { "$ref": "#/components/schemas/PostStatus" },
+          "defaultPostStatus": { "$ref": "#/components/schemas/DefaultPostStatus" },
           "createdAt": { "type": "string", "format": "date-time" },
           "updatedAt": { "type": "string", "format": "date-time" }
         }
@@ -168,6 +174,8 @@
           "cover": { "type": "string", "nullable": true },
           "body": { "type": "string" },
           "status": { "$ref": "#/components/schemas/PostStatus" },
+          "scheduledAt": { "type": "string", "format": "date-time", "nullable": true, "description": "Fecha programada de publicacion (solo con status scheduled)." },
+          "publishedAt": { "type": "string", "format": "date-time", "nullable": true, "description": "Fecha en que se publico (la programada, si se programo)." },
           "companyId": { "type": "integer" },
           "categoryId": { "type": "integer" },
           "authorId": { "type": "integer" },
@@ -536,7 +544,7 @@
                 "type": "object",
                 "properties": {
                   "allowedOrigins": { "type": "array", "items": { "type": "string" } },
-                  "defaultPostStatus": { "$ref": "#/components/schemas/PostStatus" }
+                  "defaultPostStatus": { "$ref": "#/components/schemas/DefaultPostStatus" }
                 }
               },
               "example": { "defaultPostStatus": "pending" }
@@ -605,10 +613,14 @@
                   "body": { "type": "string" },
                   "categoryId": { "type": "integer" },
                   "tagIds": { "type": "array", "items": { "type": "integer" } },
-                  "status": { "$ref": "#/components/schemas/PostStatus" }
+                  "status": { "$ref": "#/components/schemas/PostStatus" },
+                  "scheduledAt": { "type": "string", "format": "date-time", "nullable": true, "description": "Fecha futura (ISO 8601) para publicar el post. Obligatoria con status scheduled y solo permitida con ese status; si se envia sin status, el post queda scheduled. Cambiar a otro status cancela la programacion." }
                 }
               },
-              "example": { "title": "Hola mundo", "body": "Contenido del post...", "categoryId": 1, "tagIds": [1, 2] }
+              "examples": {
+                "inmediato": { "value": { "title": "Hola mundo", "body": "Contenido del post...", "categoryId": 1, "tagIds": [1, 2] } },
+                "programado": { "value": { "title": "Hola mundo", "body": "Contenido del post...", "categoryId": 1, "status": "scheduled", "scheduledAt": "2026-12-01T15:00:00.000Z" } }
+              }
             },
             "multipart/form-data": {
               "schema": {
@@ -620,7 +632,8 @@
                   "body": { "type": "string" },
                   "categoryId": { "type": "integer" },
                   "tagIds": { "type": "string", "description": "Array de ids en JSON, ej. \"[1,2]\"." },
-                  "status": { "$ref": "#/components/schemas/PostStatus" }
+                  "status": { "$ref": "#/components/schemas/PostStatus" },
+                  "scheduledAt": { "type": "string", "format": "date-time", "nullable": true, "description": "Fecha futura (ISO 8601) para publicar el post. Obligatoria con status scheduled y solo permitida con ese status; si se envia sin status, el post queda scheduled. Cambiar a otro status cancela la programacion." }
                 }
               }
             }
@@ -691,7 +704,8 @@
                   "body": { "type": "string" },
                   "categoryId": { "type": "integer" },
                   "tagIds": { "type": "array", "items": { "type": "integer" } },
-                  "status": { "$ref": "#/components/schemas/PostStatus" }
+                  "status": { "$ref": "#/components/schemas/PostStatus" },
+                  "scheduledAt": { "type": "string", "format": "date-time", "nullable": true, "description": "Fecha futura (ISO 8601) para publicar el post. Obligatoria con status scheduled y solo permitida con ese status; si se envia sin status, el post queda scheduled. Cambiar a otro status cancela la programacion." }
                 }
               }
             },
@@ -704,7 +718,8 @@
                   "body": { "type": "string" },
                   "categoryId": { "type": "integer" },
                   "tagIds": { "type": "string", "description": "Array de ids en JSON, ej. \"[1,2]\"." },
-                  "status": { "$ref": "#/components/schemas/PostStatus" }
+                  "status": { "$ref": "#/components/schemas/PostStatus" },
+                  "scheduledAt": { "type": "string", "format": "date-time", "nullable": true, "description": "Fecha futura (ISO 8601) para publicar el post. Obligatoria con status scheduled y solo permitida con ese status; si se envia sin status, el post queda scheduled. Cambiar a otro status cancela la programacion." }
                 }
               }
             }
@@ -1181,7 +1196,7 @@
       "get": {
         "tags": ["Public"],
         "summary": "Listar posts publicados de una empresa",
-        "description": "Solo devuelve posts con status \"published\" (los drafts/pending nunca son visibles publicamente). Si la empresa existe pero no tiene posts publicados (o ninguno matchea los filtros), responde 200 con data: [] y meta.total: 0 — NO 404. El 404 ocurre unicamente cuando companySlug no corresponde a ninguna empresa.",
+        "description": "Solo devuelve posts con status \"published\" (los drafts/pending/scheduled nunca son visibles publicamente; un post scheduled aparece en cuanto llega su scheduledAt). Ordenados por publishedAt descendente. Si la empresa existe pero no tiene posts publicados (o ninguno matchea los filtros), responde 200 con data: [] y meta.total: 0 — NO 404. El 404 ocurre unicamente cuando companySlug no corresponde a ninguna empresa.",
         "parameters": [
           { "name": "companySlug", "in": "path", "required": true, "schema": { "type": "string" }, "example": "acme-inc", "description": "Slug de la EMPRESA, asignado al crearla via POST /api/companies (slugify del nombre, sin timestamp). No confundir con el slug de un post, que si lleva timestamp (ver el parametro slug del endpoint de detalle)." },
           { "name": "category", "in": "query", "required": false, "schema": { "type": "string" }, "description": "Filtrar por nombre de categoria." },
@@ -1223,7 +1238,7 @@
       "get": {
         "tags": ["Public"],
         "summary": "Obtener un post publicado por slug",
-        "description": "Solo encuentra posts con status \"published\". El slug del post se autogenera como slugify(title)-<timestamp>, por eso normalmente termina en un numero largo (ver ejemplo).",
+        "description": "Solo encuentra posts con status \"published\" (un post scheduled aparece en cuanto llega su scheduledAt). El slug del post se autogenera como slugify(title)-<timestamp>, por eso normalmente termina en un numero largo (ver ejemplo).",
         "parameters": [
           { "name": "companySlug", "in": "path", "required": true, "schema": { "type": "string" }, "example": "acme-inc", "description": "Slug de la EMPRESA (asignado al crearla via POST /api/companies, sin timestamp). No confundir con el slug de un post." },
           { "name": "slug", "in": "path", "required": true, "schema": { "type": "string" }, "example": "hola-mundo-1699999999999", "description": "Slug del POST, autogenerado como slugify(title)-<Date.now()> al crearlo." }

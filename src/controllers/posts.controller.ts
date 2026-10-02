@@ -4,8 +4,10 @@ import { prisma } from '../prisma/client';
 import { AuthRequest } from '../types';
 import { generateSlug } from '../utils/slug';
 import { uploadCoverToStorage, deleteCoverFromStorage } from '../utils/storage';
+import { parseScheduledAt, resolveScheduling } from '../utils/scheduling';
+import { publishDuePosts } from '../utils/scheduler';
 
-const VALID_STATUSES: PostStatus[] = ['draft', 'pending', 'published'];
+const VALID_STATUSES: PostStatus[] = ['draft', 'pending', 'scheduled', 'published'];
 
 /**
  * `tagIds` arrives as a real array over JSON, but as a JSON-encoded string
@@ -71,6 +73,9 @@ export const getAllPosts = async (req: AuthRequest, res: Response, next: NextFun
   try {
     const companyId = req.user!.companyId as number;
 
+    // Bring due scheduled posts up to date so the dashboard shows the real status.
+    await publishDuePosts(companyId);
+
     const posts = await prisma.post.findMany({
       where: { companyId },
       include: POST_INCLUDE,
@@ -87,6 +92,8 @@ export const getPostById = async (req: AuthRequest, res: Response, next: NextFun
   try {
     const companyId = req.user!.companyId as number;
     const id = Number(req.params.id);
+
+    await publishDuePosts(companyId);
 
     const post = await prisma.post.findFirst({
       where: { id, companyId },
@@ -117,8 +124,10 @@ export const createPost = async (req: AuthRequest, res: Response, next: NextFunc
     };
 
     let tagIds: number[];
+    let scheduledAt: Date | null | undefined;
     try {
       tagIds = parseTagIds(req.body.tagIds) ?? [];
+      scheduledAt = parseScheduledAt(req.body.scheduledAt);
     } catch (error) {
       res.status(400).json({ success: false, error: (error as Error).message });
       return;
@@ -140,10 +149,19 @@ export const createPost = async (req: AuthRequest, res: Response, next: NextFunc
       return;
     }
 
-    // Fall back to the company's configured default status when the caller
-    // doesn't specify one.
+    // Sending only a `scheduledAt` means scheduling the post. Otherwise fall
+    // back to the company's configured default status.
     const resolvedStatus =
-      status ?? (await prisma.companySettings.findUnique({ where: { companyId } }))?.defaultPostStatus ?? 'draft';
+      status ??
+      (scheduledAt ? 'scheduled' : undefined) ??
+      (await prisma.companySettings.findUnique({ where: { companyId } }))?.defaultPostStatus ??
+      'draft';
+
+    const scheduling = resolveScheduling(resolvedStatus, scheduledAt);
+    if ('error' in scheduling) {
+      res.status(400).json({ success: false, error: scheduling.error });
+      return;
+    }
 
     // An uploaded file takes priority over a plain `cover` URL string, so
     // existing JSON-based clients keep working unchanged.
@@ -157,7 +175,7 @@ export const createPost = async (req: AuthRequest, res: Response, next: NextFunc
         slug,
         cover: resolvedCover,
         body,
-        status: resolvedStatus,
+        ...scheduling.data,
         company:  { connect: { id: companyId } },
         category: { connect: { id: Number(categoryId) } },
         author:   { connect: { id: authorId } },
@@ -189,8 +207,10 @@ export const updatePost = async (req: AuthRequest, res: Response, next: NextFunc
     };
 
     let tagIds: number[] | undefined;
+    let scheduledAt: Date | null | undefined;
     try {
       tagIds = parseTagIds(req.body.tagIds);
+      scheduledAt = parseScheduledAt(req.body.scheduledAt);
     } catch (error) {
       res.status(400).json({ success: false, error: (error as Error).message });
       return;
@@ -213,6 +233,12 @@ export const updatePost = async (req: AuthRequest, res: Response, next: NextFunc
       return;
     }
 
+    const scheduling = resolveScheduling(status ?? existing.status, scheduledAt, existing);
+    if ('error' in scheduling) {
+      res.status(400).json({ success: false, error: scheduling.error });
+      return;
+    }
+
     const slug = title && title !== existing.title ? generateSlug(title) : existing.slug;
 
     // An uploaded file takes priority over a plain `cover` URL string, so
@@ -231,7 +257,7 @@ export const updatePost = async (req: AuthRequest, res: Response, next: NextFunc
           slug,
           ...(resolvedCover !== undefined && { cover: resolvedCover }),
           ...(body && { body }),
-          ...(status && { status }),
+          ...scheduling.data,
           ...(categoryId && { category: { connect: { id: Number(categoryId) } } }),
           ...(tagIds !== undefined && {
             tags: {

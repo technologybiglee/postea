@@ -79,7 +79,7 @@ model Tag {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  company Company @relation(fields: [companyId], references: [id])
+  company Company   @relation(fields: [companyId], references: [id])
   posts   PostTag[]
 
   @@unique([companyId, name])
@@ -89,19 +89,23 @@ model Tag {
 enum PostStatus {
   draft
   pending
+  scheduled
   published
 }
 
 model Post {
-  id         Int        @id @default(autoincrement())
-  title      String
-  slug       String
-  cover      String?
-  body       String
-  status     PostStatus @default(draft)
-  companyId  Int        @map("company_id")
-  createdAt  DateTime   @default(now()) @map("created_at")
-  updatedAt  DateTime   @updatedAt @map("updated_at")
+  id          Int        @id @default(autoincrement())
+  title       String
+  slug        String
+  cover       String?
+  body        String
+  status      PostStatus @default(draft)
+  // Set while status is `scheduled`; the scheduler publishes the post once it passes.
+  scheduledAt DateTime?  @map("scheduled_at")
+  publishedAt DateTime?  @map("published_at")
+  companyId   Int        @map("company_id")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
 
   categoryId Int      @map("category_id")
   category   Category @relation(fields: [categoryId], references: [id])
@@ -109,10 +113,11 @@ model Post {
   authorId Int  @map("author_id")
   author   User @relation(fields: [authorId], references: [id])
 
-  company Company @relation(fields: [companyId], references: [id])
+  company Company   @relation(fields: [companyId], references: [id])
   tags    PostTag[]
 
   @@unique([companyId, slug])
+  @@index([status, scheduledAt])
   @@map("posts")
 }
 

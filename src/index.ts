@@ -11,6 +11,7 @@ import companiesRoutes from './routes/companies.routes';
 import adminRoutes from './routes/admin.routes';
 import publicRoutes from './routes/public.routes';
 import { errorHandler, notFound } from './middlewares/error.middleware';
+import { startScheduler, stopScheduler } from './utils/scheduler';
 import openapiDocument from './docs/openapi.json';
 
 const app = express();
@@ -86,11 +87,13 @@ app.use(errorHandler);
 const server = app.listen(PORT, () => {
   console.log(`\n🚀  Server running on http://localhost:${PORT}`);
   console.log(`📖  Environment: ${process.env.NODE_ENV ?? 'development'}\n`);
+  startScheduler();
 });
 
 // Graceful shutdown: close Prisma connection on process exit
 const shutdown = async () => {
   console.log('\nShutting down gracefully...');
+  stopScheduler();
   server.close();
   await prisma.$disconnect();
   process.exit(0);
