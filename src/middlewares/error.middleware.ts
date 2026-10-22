@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { Prisma } from '@prisma/client';
 import multer from 'multer';
 import { StorageError } from '../utils/storage';
-import { InvalidFileTypeError } from './upload.middleware';
+import { InvalidFileTypeError, MAX_FILE_SIZE_MB } from './upload.middleware';
 
 /**
  * Global error handler. Must be registered LAST in the Express middleware chain
@@ -39,6 +39,10 @@ export const errorHandler = (
 
   // Multer: oversized file, wrong field name, etc.
   if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      res.status(413).json({ success: false, error: `File too large. Max size: ${MAX_FILE_SIZE_MB}MB.` });
+      return;
+    }
     res.status(400).json({ success: false, error: `Upload error: ${err.message}` });
     return;
   }

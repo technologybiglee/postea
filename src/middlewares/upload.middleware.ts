@@ -1,7 +1,9 @@
 import multer from 'multer';
 
 const ALLOWED_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
+/** Max cover size in MB, configurable via MAX_COVER_SIZE_MB (default 10). */
+export const MAX_FILE_SIZE_MB = Number(process.env.MAX_COVER_SIZE_MB) || 10;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 /** Thrown by the fileFilter below when the uploaded mimetype isn't allowed. */
 export class InvalidFileTypeError extends Error {

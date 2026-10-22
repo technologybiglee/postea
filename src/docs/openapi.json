@@ -271,6 +271,10 @@
         "description": "Solicitud invalida.",
         "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
       },
+      "PayloadTooLarge": {
+        "description": "La imagen de portada supera el tamano maximo (MAX_COVER_SIZE_MB, 10MB por defecto).",
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
+      },
       "Unauthorized": {
         "description": "Falta token o token invalido/expirado.",
         "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
@@ -628,7 +632,7 @@
                 "required": ["title", "body", "categoryId"],
                 "properties": {
                   "title": { "type": "string" },
-                  "cover": { "type": "string", "format": "binary", "description": "Imagen de portada (jpeg/png/webp, max 5MB)." },
+                  "cover": { "type": "string", "format": "binary", "description": "Imagen de portada (jpeg/png/webp, max 10MB)." },
                   "body": { "type": "string" },
                   "categoryId": { "type": "integer" },
                   "tagIds": { "type": "string", "description": "Array de ids en JSON, ej. \"[1,2]\"." },
@@ -655,6 +659,7 @@
             }
           },
           "400": { "$ref": "#/components/responses/BadRequest" },
+          "413": { "$ref": "#/components/responses/PayloadTooLarge" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" }
         }
@@ -714,7 +719,7 @@
                 "type": "object",
                 "properties": {
                   "title": { "type": "string" },
-                  "cover": { "type": "string", "format": "binary", "description": "Imagen de portada (jpeg/png/webp, max 5MB). Reemplaza la anterior." },
+                  "cover": { "type": "string", "format": "binary", "description": "Imagen de portada (jpeg/png/webp, max 10MB). Reemplaza la anterior." },
                   "body": { "type": "string" },
                   "categoryId": { "type": "integer" },
                   "tagIds": { "type": "string", "description": "Array de ids en JSON, ej. \"[1,2]\"." },
@@ -741,6 +746,7 @@
             }
           },
           "400": { "$ref": "#/components/responses/BadRequest" },
+          "413": { "$ref": "#/components/responses/PayloadTooLarge" },
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" }
