@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { register, login } from '../controllers/auth.controller';
+import { login } from '../controllers/auth.controller';
 import { rateLimit } from '../middlewares/rateLimit.middleware';
 
 const router = Router();
@@ -11,7 +11,6 @@ const authLimiter = rateLimit({
   message: 'Too many attempts. Please try again in a few minutes.',
 });
 
-router.post('/register', authLimiter, register);
 router.post('/login', authLimiter, login);
 
 export default router;

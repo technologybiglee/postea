@@ -4,6 +4,9 @@ import {
   getCompanyByIdAdmin,
   getAllUsersAdmin,
   getUserByIdAdmin,
+  createUserAdmin,
+  updateUserAdmin,
+  deleteUserAdmin,
   getAllPostsAdmin,
   getPostByIdAdmin,
 } from '../controllers/admin.controller';
@@ -12,13 +15,16 @@ import { requireSuperAdmin } from '../middlewares/authorize.middleware';
 
 const router = Router();
 
-// Every route here is super-admin only, read-only, cross-tenant.
+// Every route here is super-admin only and cross-tenant.
 router.use(authenticate, requireSuperAdmin);
 
 router.get('/companies', getAllCompaniesAdmin);
 router.get('/companies/:id', getCompanyByIdAdmin);
 router.get('/users', getAllUsersAdmin);
 router.get('/users/:id', getUserByIdAdmin);
+router.post('/users', createUserAdmin);
+router.put('/users/:id', updateUserAdmin);
+router.delete('/users/:id', deleteUserAdmin);
 router.get('/posts', getAllPostsAdmin);
 router.get('/posts/:id', getPostByIdAdmin);
 

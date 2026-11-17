@@ -67,7 +67,6 @@ GET /api/public/companies/:companySlug/posts/:slug
 Los usuarios autenticados operan siempre dentro del contexto de su empresa:
 
 ```
-POST   /api/auth/register          (requiere companyId en body)
 POST   /api/auth/login
 
 GET    /api/posts
@@ -147,7 +146,7 @@ No existe registro publico para el rol `super_admin` (evita que cualquiera se au
 
 ## Rate limiting
 
-Los endpoints de autenticacion (`/api/auth/register`, `/api/auth/login`) usan un limitador simple en memoria por IP (`src/middlewares/rateLimit.middleware.ts`) para frenar fuerza bruta y spam de registros. Es apto para una sola instancia; si la API llega a correr en varias replicas, hay que moverlo a un store compartido (Redis). `POST /api/companies` ya no lleva rate limiting propio: al requerir autenticacion de super admin, el vector de spam anonimo que ese limitador mitigaba dejo de existir.
+El endpoint de login (`/api/auth/login`) usa un limitador simple en memoria por IP (`src/middlewares/rateLimit.middleware.ts`) para frenar fuerza bruta. No hay registro publico: los usuarios los crea un super admin (`POST /api/admin/users`) o un usuario de la empresa (`POST /api/users`). Es apto para una sola instancia; si la API llega a correr en varias replicas, hay que moverlo a un store compartido (Redis). `POST /api/companies` ya no lleva rate limiting propio: al requerir autenticacion de super admin, el vector de spam anonimo que ese limitador mitigaba dejo de existir.
 
 ## Estrategia de Migracion
 
@@ -181,7 +180,7 @@ npx prisma migrate deploy
 1. Un **super admin** logueado crea la empresa: `POST /api/companies` (con su token Bearer) con `{ "name": "Mi Empresa" }`.
    - Opcionalmente se puede pasar `"slug": "mi-empresa"`.
    - Retorna la empresa con su `id` y `settings`.
-2. Registrar primer usuario: `POST /api/auth/register` con `{ "email": "...", "password": "...", "name": "...", "companyId": <id> }` (sigue sin requerir autenticacion — solo necesita conocer el `companyId` recien creado).
+2. El super admin crea el primer usuario de la empresa: `POST /api/admin/users` (con su token Bearer) con `{ "email": "...", "password": "...", "name": "...", "companyId": <id> }`. Ese usuario puede crear al resto con `POST /api/users`.
 3. Login: `POST /api/auth/login` con `{ "email": "...", "password": "..." }`.
    - Retorna token JWT con `companyId` y `role` incluidos.
 4. Usar el token para gestionar posts, categorias, tags y settings de la empresa.

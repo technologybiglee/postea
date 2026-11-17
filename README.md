@@ -146,8 +146,9 @@ El spec vive en `[src/docs/openapi.json](src/docs/openapi.json)` y se actualiza 
 
 | Método | Ruta                 | Descripción                  |
 | ------ | -------------------- | ---------------------------- |
-| POST   | `/api/auth/register` | Registrar nuevo usuario      |
 | POST   | `/api/auth/login`    | Iniciar sesión y obtener JWT |
+
+No hay registro público: los usuarios los crea un super admin (`POST /api/admin/users`) o un usuario de la empresa (`POST /api/users`).
 
 
 
@@ -155,11 +156,6 @@ El spec vive en `[src/docs/openapi.json](src/docs/openapi.json)` y se actualiza 
 #### Ejemplos
 
 ```bash
-# Registro
-curl -X POST http://localhost:3000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Admin","email":"admin@example.com","password":"secreto123"}'
-
 # Login
 curl -X POST http://localhost:3000/api/auth/login \
   -H "Content-Type: application/json" \
