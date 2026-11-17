@@ -140,7 +140,7 @@ Un evento es una pieza que el sitio publico muestra solo durante una ventana de 
 |------|----------|----------------------|
 | `banner` | `image` | no aplica (`null`) |
 | `bar` | `content` (max 200) | `top` / `bottom` (`top`) |
-| `circular` | `content` (max 80, el texto que gira) | `top_left` / `top_right` / `bottom_left` / `bottom_right` (`bottom_right`) |
+| `circular` | `content` (max 200, texto en marquesina que se desplaza de derecha a izquierda) | `top` / `bottom` (`top`) |
 
 - Ventana: `startsAt` es obligatorio; `endsAt` es opcional (`null` = sin fin) y debe ser posterior a `startsAt`. Fechas en UTC (ISO 8601).
 - `isActive=false` pausa el evento sin tocar sus fechas.

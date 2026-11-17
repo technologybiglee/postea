@@ -17,14 +17,9 @@ const TYPE_RULES: Record<EventType, {
 }> = {
   banner:   { requiresImage: true,  requiresContent: false, contentMax: 1000, positions: [], defaultPosition: null },
   bar:      { requiresImage: false, requiresContent: true,  contentMax: 200,  positions: ['top', 'bottom'], defaultPosition: 'top' },
-  circular: {
-    requiresImage: false,
-    requiresContent: true,
-    // The text has to fit around the circle.
-    contentMax: 80,
-    positions: ['top_left', 'top_right', 'bottom_left', 'bottom_right'],
-    defaultPosition: 'bottom_right',
-  },
+  // A bar whose text scrolls right to left (marquee). The corner positions stay
+  // in the EventPosition enum but no type accepts them anymore.
+  circular: { requiresImage: false, requiresContent: true,  contentMax: 200,  positions: ['top', 'bottom'], defaultPosition: 'top' },
 };
 
 const HEX_COLOR_RE = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i;

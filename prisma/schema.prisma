@@ -148,7 +148,7 @@ enum EventPosition {
   bottom_right
 }
 
-// Promotional piece (banner, announcement bar or rotating-text circle) shown
+// Promotional piece (banner, announcement bar or marquee bar with scrolling text) shown
 // on the public site while `isActive` and now is within [startsAt, endsAt).
 model Event {
   id              Int            @id @default(autoincrement())

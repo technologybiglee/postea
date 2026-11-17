@@ -34,14 +34,15 @@ test('requires type, title and startsAt', () => {
 
 test('enforces per-type content and image rules', () => {
   assert.match(err(parseEventInput({ ...bar, content: '' })), /content is required for type "bar"/);
-  assert.match(err(parseEventInput({ ...bar, type: 'circular', content: 'x'.repeat(81) })), /at most 80/);
+  assert.match(err(parseEventInput({ ...bar, type: 'circular', content: 'x'.repeat(201) })), /at most 200/);
   assert.match(err(parseEventInput({ title: 'Promo', type: 'banner', startsAt: bar.startsAt })), /image is required/);
   ok(parseEventInput({ title: 'Promo', type: 'banner', startsAt: bar.startsAt }, { imageUploaded: true }));
   ok(parseEventInput({ title: 'Promo', type: 'banner', startsAt: bar.startsAt, image: 'https://cdn/x.png' }));
 });
 
 test('validates and defaults position per type', () => {
-  assert.equal(ok(parseEventInput({ ...bar, type: 'circular' })).position, 'bottom_right');
+  assert.equal(ok(parseEventInput({ ...bar, type: 'circular' })).position, 'top');
+  assert.match(err(parseEventInput({ ...bar, type: 'circular', position: 'bottom_right' })), /must be one of: top, bottom/);
   assert.equal(ok(parseEventInput({ ...bar, position: 'bottom' })).position, 'bottom');
   assert.match(err(parseEventInput({ ...bar, position: 'top_left' })), /must be one of: top, bottom/);
   assert.match(
@@ -88,8 +89,8 @@ test('on update, merges with the stored event and validates the result', () => {
   assert.match(err(parseEventInput({ type: 'banner' }, { existing })), /image is required/);
   assert.equal(ok(parseEventInput({ type: 'banner', image: 'https://cdn/x.png' }, { existing })).position, null);
 
-  // Switching to circular falls back to the circular default position.
-  assert.equal(ok(parseEventInput({ type: 'circular' }, { existing })).position, 'bottom_right');
+  // Switching to circular (a marquee bar) keeps the bar position.
+  assert.equal(ok(parseEventInput({ type: 'circular' }, { existing })).position, 'bottom');
 
   // Clearing the URL while ctaText remains is rejected; null clears endsAt.
   assert.match(err(parseEventInput({ ctaUrl: '' }, { existing })), /ctaUrl is required/);

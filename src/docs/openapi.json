@@ -17,7 +17,7 @@
     { "name": "Tags", "description": "CRUD de tags (requiere autenticacion)" },
     { "name": "Dashboard", "description": "Metricas resumidas de la empresa autenticada" },
     { "name": "Users", "description": "CRUD de usuarios de la empresa autenticada" },
-    { "name": "Events", "description": "Piezas promocionales programadas (banner, barra, circulo) de la empresa autenticada" },
+    { "name": "Events", "description": "Piezas promocionales programadas (banner, barra, marquesina) de la empresa autenticada" },
     { "name": "Public", "description": "Lectura publica de posts publicados, sin autenticacion" },
     { "name": "Admin", "description": "Solo lectura, cross-tenant. Requiere un usuario con role=super_admin" }
   ],
@@ -246,7 +246,7 @@
           "content": {
             "type": "string",
             "nullable": true,
-            "description": "Texto mostrado. Requerido en bar (max 200) y circular (max 80, texto que gira)."
+            "description": "Texto mostrado. Requerido en bar y circular (max 200; en circular el texto se desplaza de derecha a izquierda)."
           },
           "image": {
             "type": "string",
@@ -279,7 +279,7 @@
               }
             ],
             "nullable": true,
-            "description": "bar: top|bottom (default top). circular: esquinas (default bottom_right). banner: null."
+            "description": "bar y circular: top|bottom (default top). banner: null."
           },
           "backgroundColor": {
             "type": "string",
@@ -327,7 +327,7 @@
           "content": {
             "type": "string",
             "nullable": true,
-            "description": "Texto mostrado. Requerido en bar (max 200) y circular (max 80, texto que gira)."
+            "description": "Texto mostrado. Requerido en bar y circular (max 200; en circular el texto se desplaza de derecha a izquierda)."
           },
           "image": {
             "type": "string",
@@ -360,7 +360,7 @@
               }
             ],
             "nullable": true,
-            "description": "bar: top|bottom (default top). circular: esquinas (default bottom_right). banner: null."
+            "description": "bar y circular: top|bottom (default top). banner: null."
           },
           "backgroundColor": {
             "type": "string",
@@ -1507,7 +1507,7 @@
           "Events"
         ],
         "summary": "Crear un evento",
-        "description": "Reglas por tipo: banner requiere imagen; bar requiere content (max 200); circular requiere content (max 80). endsAt debe ser posterior a startsAt. ctaText requiere ctaUrl.",
+        "description": "Reglas por tipo: banner requiere imagen; bar requiere content (max 200); circular requiere content (max 200). endsAt debe ser posterior a startsAt. ctaText requiere ctaUrl.",
         "security": [
           {
             "bearerAuth": []
@@ -1533,7 +1533,7 @@
                   "content": {
                     "type": "string",
                     "nullable": true,
-                    "description": "Texto mostrado. Requerido en bar (max 200) y circular (max 80, texto que gira)."
+                    "description": "Texto mostrado. Requerido en bar y circular (max 200; en circular el texto se desplaza de derecha a izquierda)."
                   },
                   "image": {
                     "type": "string",
@@ -1566,7 +1566,7 @@
                       }
                     ],
                     "nullable": true,
-                    "description": "bar: top|bottom (default top). circular: esquinas (default bottom_right). banner: null."
+                    "description": "bar y circular: top|bottom (default top). banner: null."
                   },
                   "backgroundColor": {
                     "type": "string",
@@ -1779,7 +1779,7 @@
                   "content": {
                     "type": "string",
                     "nullable": true,
-                    "description": "Texto mostrado. Requerido en bar (max 200) y circular (max 80, texto que gira)."
+                    "description": "Texto mostrado. Requerido en bar y circular (max 200; en circular el texto se desplaza de derecha a izquierda)."
                   },
                   "image": {
                     "type": "string",
@@ -1812,7 +1812,7 @@
                       }
                     ],
                     "nullable": true,
-                    "description": "bar: top|bottom (default top). circular: esquinas (default bottom_right). banner: null."
+                    "description": "bar y circular: top|bottom (default top). banner: null."
                   },
                   "backgroundColor": {
                     "type": "string",
