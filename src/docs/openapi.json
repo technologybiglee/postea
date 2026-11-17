@@ -17,6 +17,7 @@
     { "name": "Tags", "description": "CRUD de tags (requiere autenticacion)" },
     { "name": "Dashboard", "description": "Metricas resumidas de la empresa autenticada" },
     { "name": "Users", "description": "CRUD de usuarios de la empresa autenticada" },
+    { "name": "Events", "description": "Piezas promocionales programadas (banner, barra, circulo) de la empresa autenticada" },
     { "name": "Public", "description": "Lectura publica de posts publicados, sin autenticacion" },
     { "name": "Admin", "description": "Solo lectura, cross-tenant. Requiere un usuario con role=super_admin" }
   ],
@@ -201,6 +202,216 @@
             }
           }
         ]
+      },
+      "EventType": {
+        "type": "string",
+        "enum": [
+          "banner",
+          "bar",
+          "circular"
+        ]
+      },
+      "EventPosition": {
+        "type": "string",
+        "enum": [
+          "top",
+          "bottom",
+          "top_left",
+          "top_right",
+          "bottom_left",
+          "bottom_right"
+        ]
+      },
+      "EventState": {
+        "type": "string",
+        "enum": [
+          "paused",
+          "upcoming",
+          "active",
+          "expired"
+        ],
+        "description": "Calculado a partir de isActive, startsAt y endsAt; no se guarda."
+      },
+      "PublicEvent": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 120,
+            "example": "Black Friday"
+          },
+          "content": {
+            "type": "string",
+            "nullable": true,
+            "description": "Texto mostrado. Requerido en bar (max 200) y circular (max 80, texto que gira)."
+          },
+          "image": {
+            "type": "string",
+            "nullable": true,
+            "description": "URL de la imagen. Requerida en banner."
+          },
+          "ctaText": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 60,
+            "example": "Comprar"
+          },
+          "ctaUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "URL http(s) o ruta relativa que empiece con /.",
+            "example": "/ofertas"
+          },
+          "ctaNewTab": {
+            "type": "boolean",
+            "default": false
+          },
+          "type": {
+            "$ref": "#/components/schemas/EventType"
+          },
+          "position": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EventPosition"
+              }
+            ],
+            "nullable": true,
+            "description": "bar: top|bottom (default top). circular: esquinas (default bottom_right). banner: null."
+          },
+          "backgroundColor": {
+            "type": "string",
+            "nullable": true,
+            "example": "#111111"
+          },
+          "textColor": {
+            "type": "string",
+            "nullable": true,
+            "example": "#FFFFFF"
+          },
+          "dismissible": {
+            "type": "boolean",
+            "default": true,
+            "description": "Si el visitante puede cerrarlo."
+          },
+          "priority": {
+            "type": "integer",
+            "default": 0,
+            "description": "Mayor primero cuando hay varios activos."
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "null = sin fecha de fin."
+          }
+        }
+      },
+      "Event": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 120,
+            "example": "Black Friday"
+          },
+          "content": {
+            "type": "string",
+            "nullable": true,
+            "description": "Texto mostrado. Requerido en bar (max 200) y circular (max 80, texto que gira)."
+          },
+          "image": {
+            "type": "string",
+            "nullable": true,
+            "description": "URL de la imagen. Requerida en banner."
+          },
+          "ctaText": {
+            "type": "string",
+            "nullable": true,
+            "maxLength": 60,
+            "example": "Comprar"
+          },
+          "ctaUrl": {
+            "type": "string",
+            "nullable": true,
+            "description": "URL http(s) o ruta relativa que empiece con /.",
+            "example": "/ofertas"
+          },
+          "ctaNewTab": {
+            "type": "boolean",
+            "default": false
+          },
+          "type": {
+            "$ref": "#/components/schemas/EventType"
+          },
+          "position": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/EventPosition"
+              }
+            ],
+            "nullable": true,
+            "description": "bar: top|bottom (default top). circular: esquinas (default bottom_right). banner: null."
+          },
+          "backgroundColor": {
+            "type": "string",
+            "nullable": true,
+            "example": "#111111"
+          },
+          "textColor": {
+            "type": "string",
+            "nullable": true,
+            "example": "#FFFFFF"
+          },
+          "dismissible": {
+            "type": "boolean",
+            "default": true,
+            "description": "Si el visitante puede cerrarlo."
+          },
+          "priority": {
+            "type": "integer",
+            "default": 0,
+            "description": "Mayor primero cuando hay varios activos."
+          },
+          "startsAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "endsAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true,
+            "description": "null = sin fecha de fin."
+          },
+          "isActive": {
+            "type": "boolean",
+            "default": true,
+            "description": "false = pausado."
+          },
+          "state": {
+            "$ref": "#/components/schemas/EventState"
+          },
+          "companyId": {
+            "type": "integer"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
       },
       "PaginationMeta": {
         "type": "object",
@@ -1200,6 +1411,582 @@
         }
       }
     },
+    "/api/events": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Listar eventos de la empresa",
+        "description": "Paginado, orden startsAt desc. Cada item incluye `state`.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10,
+              "maximum": 50
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Tipo(s), separados por coma.",
+              "example": "bar,circular"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Estado(s): paused, upcoming, active, expired.",
+              "example": "active,upcoming"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista paginada de eventos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Event"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Crear un evento",
+        "description": "Reglas por tipo: banner requiere imagen; bar requiere content (max 200); circular requiere content (max 80). endsAt debe ser posterior a startsAt. ctaText requiere ctaUrl.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title",
+                  "type",
+                  "startsAt"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "maxLength": 120,
+                    "example": "Black Friday"
+                  },
+                  "content": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "Texto mostrado. Requerido en bar (max 200) y circular (max 80, texto que gira)."
+                  },
+                  "image": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "URL de imagen. En multipart, enviar el archivo en el campo `image` (jpeg/png/webp)."
+                  },
+                  "ctaText": {
+                    "type": "string",
+                    "nullable": true,
+                    "maxLength": 60,
+                    "example": "Comprar"
+                  },
+                  "ctaUrl": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "URL http(s) o ruta relativa que empiece con /.",
+                    "example": "/ofertas"
+                  },
+                  "ctaNewTab": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "type": {
+                    "$ref": "#/components/schemas/EventType"
+                  },
+                  "position": {
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/EventPosition"
+                      }
+                    ],
+                    "nullable": true,
+                    "description": "bar: top|bottom (default top). circular: esquinas (default bottom_right). banner: null."
+                  },
+                  "backgroundColor": {
+                    "type": "string",
+                    "nullable": true,
+                    "example": "#111111"
+                  },
+                  "textColor": {
+                    "type": "string",
+                    "nullable": true,
+                    "example": "#FFFFFF"
+                  },
+                  "dismissible": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Si el visitante puede cerrarlo."
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "Mayor primero cuando hay varios activos."
+                  },
+                  "startsAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "endsAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "nullable": true,
+                    "description": "null = sin fecha de fin."
+                  },
+                  "isActive": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title",
+                  "type",
+                  "startsAt"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "content": {
+                    "type": "string"
+                  },
+                  "image": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "ctaText": {
+                    "type": "string"
+                  },
+                  "ctaUrl": {
+                    "type": "string"
+                  },
+                  "ctaNewTab": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "position": {
+                    "type": "string"
+                  },
+                  "backgroundColor": {
+                    "type": "string"
+                  },
+                  "textColor": {
+                    "type": "string"
+                  },
+                  "dismissible": {
+                    "type": "string"
+                  },
+                  "priority": {
+                    "type": "string"
+                  },
+                  "startsAt": {
+                    "type": "string"
+                  },
+                  "endsAt": {
+                    "type": "string"
+                  },
+                  "isActive": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Evento creado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Event"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          }
+        }
+      }
+    },
+    "/api/events/{id}": {
+      "parameters": [
+        {
+          "name": "id",
+          "in": "path",
+          "required": true,
+          "schema": {
+            "type": "integer"
+          }
+        }
+      ],
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Obtener un evento",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Evento encontrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Event"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Actualizar un evento",
+        "description": "Todos los campos son opcionales; las reglas se validan sobre el resultado combinado con lo guardado. Enviar null o \"\" limpia un campo opcional. Si se reemplaza o quita la imagen, la anterior se borra del storage.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [],
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "maxLength": 120,
+                    "example": "Black Friday"
+                  },
+                  "content": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "Texto mostrado. Requerido en bar (max 200) y circular (max 80, texto que gira)."
+                  },
+                  "image": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "URL de imagen. En multipart, enviar el archivo en el campo `image` (jpeg/png/webp)."
+                  },
+                  "ctaText": {
+                    "type": "string",
+                    "nullable": true,
+                    "maxLength": 60,
+                    "example": "Comprar"
+                  },
+                  "ctaUrl": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "URL http(s) o ruta relativa que empiece con /.",
+                    "example": "/ofertas"
+                  },
+                  "ctaNewTab": {
+                    "type": "boolean",
+                    "default": false
+                  },
+                  "type": {
+                    "$ref": "#/components/schemas/EventType"
+                  },
+                  "position": {
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/EventPosition"
+                      }
+                    ],
+                    "nullable": true,
+                    "description": "bar: top|bottom (default top). circular: esquinas (default bottom_right). banner: null."
+                  },
+                  "backgroundColor": {
+                    "type": "string",
+                    "nullable": true,
+                    "example": "#111111"
+                  },
+                  "textColor": {
+                    "type": "string",
+                    "nullable": true,
+                    "example": "#FFFFFF"
+                  },
+                  "dismissible": {
+                    "type": "boolean",
+                    "default": true,
+                    "description": "Si el visitante puede cerrarlo."
+                  },
+                  "priority": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "Mayor primero cuando hay varios activos."
+                  },
+                  "startsAt": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "endsAt": {
+                    "type": "string",
+                    "format": "date-time",
+                    "nullable": true,
+                    "description": "null = sin fecha de fin."
+                  },
+                  "isActive": {
+                    "type": "boolean",
+                    "default": true
+                  }
+                }
+              }
+            },
+            "multipart/form-data": {
+              "schema": {
+                "type": "object",
+                "required": [],
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "content": {
+                    "type": "string"
+                  },
+                  "image": {
+                    "type": "string",
+                    "format": "binary"
+                  },
+                  "ctaText": {
+                    "type": "string"
+                  },
+                  "ctaUrl": {
+                    "type": "string"
+                  },
+                  "ctaNewTab": {
+                    "type": "string"
+                  },
+                  "type": {
+                    "type": "string"
+                  },
+                  "position": {
+                    "type": "string"
+                  },
+                  "backgroundColor": {
+                    "type": "string"
+                  },
+                  "textColor": {
+                    "type": "string"
+                  },
+                  "dismissible": {
+                    "type": "string"
+                  },
+                  "priority": {
+                    "type": "string"
+                  },
+                  "startsAt": {
+                    "type": "string"
+                  },
+                  "endsAt": {
+                    "type": "string"
+                  },
+                  "isActive": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Evento actualizado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "$ref": "#/components/schemas/Event"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "413": {
+            "$ref": "#/components/responses/PayloadTooLarge"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Eliminar un evento",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Evento eliminado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Event deleted successfully."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
     "/api/users": {
       "get": {
         "tags": [
@@ -2013,6 +2800,65 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/public/companies/{companySlug}/events": {
+      "get": {
+        "tags": [
+          "Public"
+        ],
+        "summary": "Eventos activos en este momento",
+        "description": "Solo eventos con isActive=true, startsAt <= ahora y (endsAt null o > ahora). Orden: priority desc, startsAt desc.",
+        "parameters": [
+          {
+            "name": "companySlug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Tipo(s), separados por coma.",
+              "example": "bar"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Eventos activos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PublicEvent"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
           }
         }
       }

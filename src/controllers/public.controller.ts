@@ -3,6 +3,8 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma/client';
 import { publishDuePosts } from '../utils/scheduler';
 import { parsePagination, buildMeta } from '../utils/pagination';
+import { eventStateWhere } from '../utils/events';
+import { parseTypeFilter } from './events.controller';
 
 type PublicPostPayload = Prisma.PostGetPayload<{
   include: {
@@ -115,6 +117,57 @@ export const getPublicPostBySlug = async (req: Request, res: Response, next: Nex
     const post = raw as unknown as PublicPostPayload;
 
     res.json({ success: true, data: flattenTags(post) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const PUBLIC_EVENT_SELECT = {
+  id: true,
+  title: true,
+  content: true,
+  image: true,
+  ctaText: true,
+  ctaUrl: true,
+  ctaNewTab: true,
+  type: true,
+  position: true,
+  backgroundColor: true,
+  textColor: true,
+  dismissible: true,
+  priority: true,
+  startsAt: true,
+  endsAt: true,
+} as const;
+
+/**
+ * GET /api/public/companies/:companySlug/events
+ *
+ * Events showing right now (active, started, not ended), highest priority
+ * first. Optional query param:
+ *   - type: banner, bar, circular (comma-separated for several)
+ */
+export const getPublicEvents = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const companyId = res.locals.companyId as number;
+
+    const typeFilter = parseTypeFilter(req.query.type);
+    if ('error' in typeFilter) {
+      res.status(400).json({ success: false, error: typeFilter.error });
+      return;
+    }
+
+    const events = await prisma.event.findMany({
+      where: {
+        companyId,
+        ...eventStateWhere('active'),
+        ...(typeFilter.types && { type: { in: typeFilter.types } }),
+      },
+      select: PUBLIC_EVENT_SELECT,
+      orderBy: [{ priority: 'desc' }, { startsAt: 'desc' }, { id: 'desc' }],
+    });
+
+    res.json({ success: true, data: events });
   } catch (error) {
     next(error);
   }

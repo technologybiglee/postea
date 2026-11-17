@@ -29,6 +29,7 @@ Post    *──* Tag  (via PostTag)
 | `Post` | Articulo. Slug unico dentro de la empresa (`@@unique([companyId, slug])`). | Por empresa |
 | `Category` | Clasificacion. Nombre unico dentro de la empresa (`@@unique([companyId, name])`). | Por empresa |
 | `Tag` | Etiqueta. Nombre unico dentro de la empresa (`@@unique([companyId, name])`). | Por empresa |
+| `Event` | Pieza promocional programada (`banner`, `bar` o `circular`) que el sitio publico muestra entre `startsAt` y `endsAt`. | Por empresa |
 
 ### CompanySettings
 
@@ -50,6 +51,7 @@ Los consumidores externos acceden a los posts de una empresa usando el `companyS
 ```
 GET /api/public/companies/:companySlug/posts
 GET /api/public/companies/:companySlug/posts/:slug
+GET /api/public/companies/:companySlug/events
 ```
 
 1. El middleware `resolveCompany` busca la empresa por `slug`.
@@ -86,6 +88,12 @@ GET    /api/tags/:id
 POST   /api/tags
 PUT    /api/tags/:id
 DELETE /api/tags/:id
+
+GET    /api/events
+GET    /api/events/:id
+POST   /api/events
+PUT    /api/events/:id
+DELETE /api/events/:id
 ```
 
 1. El usuario se autentica con `POST /api/auth/login`.
@@ -123,6 +131,25 @@ GET /api/admin/posts/:id       (requiere super admin)
 - Protegida por `authenticate` + `requireSuperAdmin` (`src/middlewares/authorize.middleware.ts`).
 - `GET /api/admin/users` nunca incluye el campo `password`.
 - El primer super admin se crea con el seed de Prisma (ver "Bootstrap del super admin" mas abajo); no hay endpoint publico para auto-asignarse el rol.
+
+## Eventos (piezas promocionales)
+
+Un evento es una pieza que el sitio publico muestra solo durante una ventana de tiempo. Hay tres tipos:
+
+| Tipo | Requiere | `position` (default) |
+|------|----------|----------------------|
+| `banner` | `image` | no aplica (`null`) |
+| `bar` | `content` (max 200) | `top` / `bottom` (`top`) |
+| `circular` | `content` (max 80, el texto que gira) | `top_left` / `top_right` / `bottom_left` / `bottom_right` (`bottom_right`) |
+
+- Ventana: `startsAt` es obligatorio; `endsAt` es opcional (`null` = sin fin) y debe ser posterior a `startsAt`. Fechas en UTC (ISO 8601).
+- `isActive=false` pausa el evento sin tocar sus fechas.
+- `state` (`paused`, `upcoming`, `active`, `expired`) se calcula en cada respuesta; no se guarda y no requiere scheduler.
+- Si hay varios activos del mismo tipo, se ordenan por `priority` (mayor primero). El frontend decide si muestra el primero o los rota.
+- CTA: `ctaText` + `ctaUrl` (http(s) o ruta relativa que empiece con `/`) + `ctaNewTab`.
+- Estilo: `backgroundColor` y `textColor` en hex; `dismissible` indica si el visitante puede cerrarlo.
+- Imagen: archivo multipart en el campo `image` (mismo bucket y limites que las portadas de posts) o una URL en JSON.
+- `GET /api/public/companies/:companySlug/events?type=bar` devuelve solo los activos en este momento.
 
 ## Reglas de Aislamiento
 

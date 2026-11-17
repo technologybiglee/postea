@@ -20,6 +20,7 @@ model Company {
   posts      Post[]
   categories Category[]
   tags       Tag[]
+  events     Event[]
 
   @@map("companies")
 }
@@ -130,4 +131,49 @@ model PostTag {
 
   @@id([postId, tagId])
   @@map("post_tags")
+}
+
+enum EventType {
+  banner
+  bar
+  circular
+}
+
+enum EventPosition {
+  top
+  bottom
+  top_left
+  top_right
+  bottom_left
+  bottom_right
+}
+
+// Promotional piece (banner, announcement bar or rotating-text circle) shown
+// on the public site while `isActive` and now is within [startsAt, endsAt).
+model Event {
+  id              Int            @id @default(autoincrement())
+  companyId       Int            @map("company_id")
+  title           String
+  content         String?
+  image           String?
+  ctaText         String?        @map("cta_text")
+  ctaUrl          String?        @map("cta_url")
+  ctaNewTab       Boolean        @default(false) @map("cta_new_tab")
+  type            EventType
+  position        EventPosition?
+  backgroundColor String?        @map("background_color")
+  textColor       String?        @map("text_color")
+  dismissible     Boolean        @default(true)
+  isActive        Boolean        @default(true) @map("is_active")
+  priority        Int            @default(0)
+  startsAt        DateTime       @map("starts_at")
+  // null = no end date; stays active until paused or given an end.
+  endsAt          DateTime?      @map("ends_at")
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  company Company @relation(fields: [companyId], references: [id])
+
+  @@index([companyId, type, startsAt])
+  @@map("events")
 }

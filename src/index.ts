@@ -12,6 +12,7 @@ import adminRoutes from './routes/admin.routes';
 import publicRoutes from './routes/public.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import usersRoutes from './routes/users.routes';
+import eventsRoutes from './routes/events.routes';
 import { errorHandler, notFound } from './middlewares/error.middleware';
 import { MAX_BODY_SIZE_MB } from './middlewares/upload.middleware';
 import { startScheduler, stopScheduler } from './utils/scheduler';
@@ -73,6 +74,7 @@ app.use('/api/categories', adminCors, categoriesRoutes);
 app.use('/api/tags', adminCors, tagsRoutes);
 app.use('/api/dashboard', adminCors, dashboardRoutes);
 app.use('/api/users', adminCors, usersRoutes);
+app.use('/api/events', adminCors, eventsRoutes);
 
 // Health check endpoint (useful for Docker/load-balancer probes)
 app.get('/health', (_req, res) => {

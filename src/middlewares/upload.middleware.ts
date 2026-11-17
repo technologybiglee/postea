@@ -16,19 +16,27 @@ export class InvalidFileTypeError extends Error {
 }
 
 /**
- * Parses an optional `cover` file from multipart/form-data requests, kept in
- * memory (never written to disk) so it can be forwarded straight to Supabase
- * Storage. Only wired on routes that accept a body (POST/PUT) — a plain JSON
- * request is unaffected, since multer only parses multipart/form-data.
+ * Builds a middleware that parses one optional image file from the given
+ * multipart/form-data field, kept in memory (never written to disk) so it can
+ * be forwarded straight to Supabase Storage. Only wired on routes that accept
+ * a body (POST/PUT) — a plain JSON request is unaffected, since multer only
+ * parses multipart/form-data.
  */
-export const uploadCoverImage = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: MAX_FILE_SIZE_BYTES, fieldSize: MAX_BODY_SIZE_MB * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
-      cb(new InvalidFileTypeError(`Invalid file type. Allowed: ${ALLOWED_MIME_TYPES.join(', ')}.`));
-      return;
-    }
-    cb(null, true);
-  },
-}).single('cover');
+export const uploadImage = (field: string) =>
+  multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: MAX_FILE_SIZE_BYTES, fieldSize: MAX_BODY_SIZE_MB * 1024 * 1024 },
+    fileFilter: (_req, file, cb) => {
+      if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+        cb(new InvalidFileTypeError(`Invalid file type. Allowed: ${ALLOWED_MIME_TYPES.join(', ')}.`));
+        return;
+      }
+      cb(null, true);
+    },
+  }).single(field);
+
+/** Optional `cover` file for posts. */
+export const uploadCoverImage = uploadImage('cover');
+
+/** Optional `image` file for events. */
+export const uploadEventImage = uploadImage('image');
