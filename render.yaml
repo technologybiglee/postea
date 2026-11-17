@@ -25,4 +25,6 @@ services:
       - key: SUPABASE_STORAGE_BUCKET
         sync: false
       - key: MAX_COVER_SIZE_MB
-        value: "10"
+        value: "20"
+      - key: MAX_BODY_SIZE_MB
+        value: "5"

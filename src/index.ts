@@ -10,7 +10,9 @@ import tagsRoutes from './routes/tags.routes';
 import companiesRoutes from './routes/companies.routes';
 import adminRoutes from './routes/admin.routes';
 import publicRoutes from './routes/public.routes';
+import dashboardRoutes from './routes/dashboard.routes';
 import { errorHandler, notFound } from './middlewares/error.middleware';
+import { MAX_BODY_SIZE_MB } from './middlewares/upload.middleware';
 import { startScheduler, stopScheduler } from './utils/scheduler';
 import openapiDocument from './docs/openapi.json';
 
@@ -47,8 +49,8 @@ const adminCors = cors({
 });
 
 // ─── Global middleware ────────────────────────────────────────────────────────
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: `${MAX_BODY_SIZE_MB}mb` }));
+app.use(express.urlencoded({ extended: true, limit: `${MAX_BODY_SIZE_MB}mb` }));
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
 
@@ -68,6 +70,7 @@ app.use('/api/admin', adminCors, adminRoutes);
 app.use('/api/posts', adminCors, postsRoutes);
 app.use('/api/categories', adminCors, categoriesRoutes);
 app.use('/api/tags', adminCors, tagsRoutes);
+app.use('/api/dashboard', adminCors, dashboardRoutes);
 
 // Health check endpoint (useful for Docker/load-balancer probes)
 app.get('/health', (_req, res) => {

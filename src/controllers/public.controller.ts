@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { Prisma } from '@prisma/client';
 import { prisma } from '../prisma/client';
 import { publishDuePosts } from '../utils/scheduler';
+import { parsePagination, buildMeta } from '../utils/pagination';
 
 type PublicPostPayload = Prisma.PostGetPayload<{
   include: {
@@ -61,9 +62,7 @@ export const getPublicPosts = async (req: Request, res: Response, next: NextFunc
 
     const category = typeof req.query.category === 'string' ? req.query.category : undefined;
     const tag      = typeof req.query.tag      === 'string' ? req.query.tag      : undefined;
-    const page     = Math.max(1, Number(req.query.page)  || 1);
-    const limit    = Math.min(50, Math.max(1, Number(req.query.limit) || 10));
-    const skip     = (page - 1) * limit;
+    const { page, limit, skip } = parsePagination(req.query);
 
     // The interval scheduler may not have run yet (e.g. the service just woke
     // up), so publish anything due before reading.
@@ -86,7 +85,7 @@ export const getPublicPosts = async (req: Request, res: Response, next: NextFunc
     res.json({
       success: true,
       data: posts.map(flattenTags),
-      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+      meta: buildMeta(total, page, limit),
     });
   } catch (error) {
     next(error);

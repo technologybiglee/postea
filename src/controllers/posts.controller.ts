@@ -1,13 +1,14 @@
 import { Response, NextFunction } from 'express';
-import { PostStatus } from '@prisma/client';
+import { PostStatus, Prisma } from '@prisma/client';
 import { prisma } from '../prisma/client';
 import { AuthRequest } from '../types';
 import { generateSlug } from '../utils/slug';
 import { uploadCoverToStorage, deleteCoverFromStorage } from '../utils/storage';
 import { parseScheduledAt, resolveScheduling } from '../utils/scheduling';
 import { publishDuePosts } from '../utils/scheduler';
+import { parsePagination, parseIdList, parseList, buildMeta } from '../utils/pagination';
 
-const VALID_STATUSES: PostStatus[] = ['draft', 'pending', 'scheduled', 'published'];
+export const VALID_STATUSES: PostStatus[] = ['draft', 'pending', 'scheduled', 'published'];
 
 /**
  * `tagIds` arrives as a real array over JSON, but as a JSON-encoded string
@@ -72,17 +73,41 @@ const checkOwnership = async (
 export const getAllPosts = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
   try {
     const companyId = req.user!.companyId as number;
+    const { page, limit, skip } = parsePagination(req.query);
+
+    let categoryIds: number[] | undefined;
+    let tagIds: number[] | undefined;
+    let statuses: PostStatus[] | undefined;
+    try {
+      categoryIds = parseIdList(req.query.categoryId, 'categoryId');
+      tagIds      = parseIdList(req.query.tagId, 'tagId');
+      statuses    = parseList(req.query.status) as PostStatus[] | undefined;
+    } catch (error) {
+      res.status(400).json({ success: false, error: (error as Error).message });
+      return;
+    }
+
+    if (statuses && statuses.some((s) => !VALID_STATUSES.includes(s))) {
+      res.status(400).json({ success: false, error: `status must be one of: ${VALID_STATUSES.join(', ')}.` });
+      return;
+    }
 
     // Bring due scheduled posts up to date so the dashboard shows the real status.
     await publishDuePosts(companyId);
 
-    const posts = await prisma.post.findMany({
-      where: { companyId },
-      include: POST_INCLUDE,
-      orderBy: { createdAt: 'desc' },
-    });
+    const where: Prisma.PostWhereInput = {
+      companyId,
+      ...(categoryIds && { categoryId: { in: categoryIds } }),
+      ...(statuses    && { status: { in: statuses } }),
+      ...(tagIds      && { tags: { some: { tagId: { in: tagIds } } } }),
+    };
 
-    res.json({ success: true, data: posts.map(flattenTags) });
+    const [posts, total] = await Promise.all([
+      prisma.post.findMany({ where, include: POST_INCLUDE, orderBy: { createdAt: 'desc' }, skip, take: limit }),
+      prisma.post.count({ where }),
+    ]);
+
+    res.json({ success: true, data: posts.map(flattenTags), meta: buildMeta(total, page, limit) });
   } catch (error) {
     next(error);
   }

@@ -2,7 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { Prisma } from '@prisma/client';
 import multer from 'multer';
 import { StorageError } from '../utils/storage';
-import { InvalidFileTypeError, MAX_FILE_SIZE_MB } from './upload.middleware';
+import { InvalidFileTypeError, MAX_BODY_SIZE_MB, MAX_FILE_SIZE_MB } from './upload.middleware';
 
 /**
  * Global error handler. Must be registered LAST in the Express middleware chain
@@ -43,7 +43,17 @@ export const errorHandler = (
       res.status(413).json({ success: false, error: `File too large. Max size: ${MAX_FILE_SIZE_MB}MB.` });
       return;
     }
+    if (err.code === 'LIMIT_FIELD_VALUE') {
+      res.status(413).json({ success: false, error: `Request body too large. Max size: ${MAX_BODY_SIZE_MB}MB.` });
+      return;
+    }
     res.status(400).json({ success: false, error: `Upload error: ${err.message}` });
+    return;
+  }
+
+  // body-parser: JSON/urlencoded body over the express.json() limit.
+  if ((err as Error & { type?: string }).type === 'entity.too.large') {
+    res.status(413).json({ success: false, error: `Request body too large. Max size: ${MAX_BODY_SIZE_MB}MB.` });
     return;
   }
 

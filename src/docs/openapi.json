@@ -15,6 +15,7 @@
     { "name": "Posts", "description": "CRUD de posts (requiere autenticacion)" },
     { "name": "Categories", "description": "CRUD de categorias (requiere autenticacion)" },
     { "name": "Tags", "description": "CRUD de tags (requiere autenticacion)" },
+    { "name": "Dashboard", "description": "Metricas resumidas de la empresa autenticada" },
     { "name": "Public", "description": "Lectura publica de posts publicados, sin autenticacion" },
     { "name": "Admin", "description": "Solo lectura, cross-tenant. Requiere un usuario con role=super_admin" }
   ],
@@ -272,7 +273,7 @@
         "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
       },
       "PayloadTooLarge": {
-        "description": "La imagen de portada supera el tamano maximo (MAX_COVER_SIZE_MB, 10MB por defecto).",
+        "description": "La imagen de portada supera el tamano maximo (MAX_COVER_SIZE_MB, 20MB por defecto).",
         "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ApiError" } } }
       },
       "Unauthorized": {
@@ -578,26 +579,103 @@
     },
     "/api/posts": {
       "get": {
-        "tags": ["Posts"],
+        "tags": [
+          "Posts"
+        ],
         "summary": "Listar posts de la empresa autenticada",
-        "security": [{ "bearerAuth": [] }],
+        "description": "Lista paginada de los posts de la empresa autenticada (cualquier estado), con filtros opcionales. Los filtros de lista aceptan valores separados por coma (`?status=draft,scheduled`) o el parametro repetido.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 1,
+              "minimum": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10,
+              "maximum": 50
+            }
+          },
+          {
+            "name": "categoryId",
+            "in": "query",
+            "required": false,
+            "description": "ID(s) de categoria. Devuelve posts de cualquiera de ellas.",
+            "schema": {
+              "type": "string",
+              "example": "1,3"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "description": "Estado(s) del post: draft, pending, scheduled, published.",
+            "schema": {
+              "type": "string",
+              "example": "draft,scheduled"
+            }
+          },
+          {
+            "name": "tagId",
+            "in": "query",
+            "required": false,
+            "description": "ID(s) de tag. Devuelve posts que tengan al menos uno de ellos.",
+            "schema": {
+              "type": "string",
+              "example": "2,5"
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "description": "Lista de posts.",
+            "description": "Lista paginada de posts.",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "success": { "type": "boolean", "example": true },
-                    "data": { "type": "array", "items": { "$ref": "#/components/schemas/Post" } }
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Post"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
                   }
                 }
               }
             }
           },
-          "401": { "$ref": "#/components/responses/Unauthorized" },
-          "403": { "$ref": "#/components/responses/Forbidden" }
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
         }
       },
       "post": {
@@ -632,7 +710,7 @@
                 "required": ["title", "body", "categoryId"],
                 "properties": {
                   "title": { "type": "string" },
-                  "cover": { "type": "string", "format": "binary", "description": "Imagen de portada (jpeg/png/webp, max 10MB)." },
+                  "cover": { "type": "string", "format": "binary", "description": "Imagen de portada (jpeg/png/webp, max 20MB)." },
                   "body": { "type": "string" },
                   "categoryId": { "type": "integer" },
                   "tagIds": { "type": "string", "description": "Array de ids en JSON, ej. \"[1,2]\"." },
@@ -719,7 +797,7 @@
                 "type": "object",
                 "properties": {
                   "title": { "type": "string" },
-                  "cover": { "type": "string", "format": "binary", "description": "Imagen de portada (jpeg/png/webp, max 10MB). Reemplaza la anterior." },
+                  "cover": { "type": "string", "format": "binary", "description": "Imagen de portada (jpeg/png/webp, max 20MB). Reemplaza la anterior." },
                   "body": { "type": "string" },
                   "categoryId": { "type": "integer" },
                   "tagIds": { "type": "string", "description": "Array de ids en JSON, ej. \"[1,2]\"." },
@@ -764,6 +842,137 @@
           "401": { "$ref": "#/components/responses/Unauthorized" },
           "403": { "$ref": "#/components/responses/Forbidden" },
           "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/dashboard": {
+      "get": {
+        "tags": [
+          "Dashboard"
+        ],
+        "summary": "Resumen del dashboard de la empresa autenticada",
+        "description": "Totales, posts por estado y por categoria, tags mas usados, proximos posts programados y ultimos posts creados. Publica antes los posts programados vencidos para que los conteos sean reales.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metricas del dashboard.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "totals": {
+                          "type": "object",
+                          "properties": {
+                            "posts": {
+                              "type": "integer",
+                              "example": 42
+                            },
+                            "categories": {
+                              "type": "integer",
+                              "example": 6
+                            },
+                            "tags": {
+                              "type": "integer",
+                              "example": 15
+                            }
+                          }
+                        },
+                        "postsByStatus": {
+                          "type": "object",
+                          "description": "Siempre incluye los 4 estados.",
+                          "properties": {
+                            "draft": {
+                              "type": "integer"
+                            },
+                            "pending": {
+                              "type": "integer"
+                            },
+                            "scheduled": {
+                              "type": "integer"
+                            },
+                            "published": {
+                              "type": "integer"
+                            }
+                          }
+                        },
+                        "postsByCategory": {
+                          "type": "array",
+                          "description": "Todas las categorias (incluso con 0 posts), ordenadas por count desc.",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "integer"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "count": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        },
+                        "topTags": {
+                          "type": "array",
+                          "maxItems": 10,
+                          "description": "Hasta 10 tags con al menos un post, ordenados por count desc.",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "id": {
+                                "type": "integer"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "count": {
+                                "type": "integer"
+                              }
+                            }
+                          }
+                        },
+                        "upcomingScheduled": {
+                          "type": "array",
+                          "maxItems": 5,
+                          "items": {
+                            "$ref": "#/components/schemas/Post"
+                          },
+                          "description": "Proximos posts programados, por scheduledAt asc."
+                        },
+                        "recentPosts": {
+                          "type": "array",
+                          "maxItems": 5,
+                          "items": {
+                            "$ref": "#/components/schemas/Post"
+                          },
+                          "description": "Ultimos posts creados, por createdAt desc."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
         }
       }
     },
