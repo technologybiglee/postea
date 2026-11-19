@@ -5,6 +5,7 @@ import { publishDuePosts } from '../utils/scheduler';
 import { parsePagination, buildMeta } from '../utils/pagination';
 import { eventStateWhere } from '../utils/events';
 import { parseTypeFilter } from './events.controller';
+import { parseInteractionInput } from '../utils/eventMetrics';
 
 type PublicPostPayload = Prisma.PostGetPayload<{
   include: {
@@ -168,6 +169,54 @@ export const getPublicEvents = async (req: Request, res: Response, next: NextFun
     });
 
     res.json({ success: true, data: events });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/public/companies/:companySlug/events/:id/interactions
+ *
+ * Records a visitor interaction with an event that is showing right now.
+ * Body: { type: impression | cta_click | dismiss, visitorId?: string }
+ */
+export const trackEventInteraction = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const companyId = res.locals.companyId as number;
+    const id = Number(req.params['id']);
+
+    const result = parseInteractionInput(req.body);
+    if ('error' in result) {
+      res.status(400).json({ success: false, error: result.error });
+      return;
+    }
+    const { type, visitorId } = result.data;
+
+    // Only events visible right now can be interacted with; this keeps paused
+    // or expired events from collecting stray metrics.
+    const event = Number.isInteger(id)
+      ? await prisma.event.findFirst({
+          where: { id, companyId, ...eventStateWhere('active') },
+          select: { id: true, ctaUrl: true, dismissible: true },
+        })
+      : null;
+    if (!event) {
+      res.status(404).json({ success: false, error: 'Event not found.' });
+      return;
+    }
+
+    if (type === 'cta_click' && !event.ctaUrl) {
+      res.status(400).json({ success: false, error: 'This event has no CTA.' });
+      return;
+    }
+    if (type === 'dismiss' && !event.dismissible) {
+      res.status(400).json({ success: false, error: 'This event is not dismissible.' });
+      return;
+    }
+
+    await prisma.eventInteraction.create({ data: { eventId: event.id, companyId, type, visitorId } });
+
+    res.status(204).end();
   } catch (error) {
     next(error);
   }

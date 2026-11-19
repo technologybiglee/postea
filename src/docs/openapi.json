@@ -413,6 +413,121 @@
           }
         }
       },
+      "EventInteractionType": {
+        "type": "string",
+        "enum": [
+          "impression",
+          "cta_click",
+          "dismiss"
+        ],
+        "description": "impression = el evento se mostro; cta_click = click en el boton CTA; dismiss = el visitante lo cerro."
+      },
+      "EventInteractionInput": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "$ref": "#/components/schemas/EventInteractionType"
+          },
+          "visitorId": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^[A-Za-z0-9_-]{1,64}$",
+            "nullable": true,
+            "description": "Id anonimo del visitante (p.ej. UUID guardado en localStorage). Opcional; habilita los conteos unicos.",
+            "example": "3f2b8c1e-9a4d-4c7e-8f61-2d5a7b9e0c13"
+          }
+        }
+      },
+      "EventMetrics": {
+        "type": "object",
+        "properties": {
+          "impressions": {
+            "type": "integer",
+            "example": 200
+          },
+          "ctaClicks": {
+            "type": "integer",
+            "example": 15
+          },
+          "dismissals": {
+            "type": "integer",
+            "example": 30
+          },
+          "uniqueImpressions": {
+            "type": "integer",
+            "example": 120,
+            "description": "visitorId distintos (las interacciones sin visitorId no cuentan como unicos)."
+          },
+          "uniqueCtaClicks": {
+            "type": "integer",
+            "example": 12
+          },
+          "uniqueDismissals": {
+            "type": "integer",
+            "example": 28
+          },
+          "ctr": {
+            "type": "number",
+            "description": "ctaClicks / impressions (0 si no hay impresiones).",
+            "example": 0.075
+          },
+          "dismissRate": {
+            "type": "number",
+            "description": "dismissals / impressions (0 si no hay impresiones).",
+            "example": 0.15
+          }
+        }
+      },
+      "EventMetricsSummary": {
+        "allOf": [
+          {
+            "type": "object",
+            "properties": {
+              "eventId": {
+                "type": "integer",
+                "example": 1
+              },
+              "title": {
+                "type": "string"
+              },
+              "type": {
+                "$ref": "#/components/schemas/EventType"
+              },
+              "state": {
+                "$ref": "#/components/schemas/EventState"
+              }
+            }
+          },
+          {
+            "$ref": "#/components/schemas/EventMetrics"
+          }
+        ]
+      },
+      "EventDailyPoint": {
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string",
+            "format": "date",
+            "example": "2026-11-18"
+          },
+          "impressions": {
+            "type": "integer",
+            "example": 10
+          },
+          "ctaClicks": {
+            "type": "integer",
+            "example": 2
+          },
+          "dismissals": {
+            "type": "integer",
+            "example": 1
+          }
+        }
+      },
       "PaginationMeta": {
         "type": "object",
         "properties": {
@@ -1700,6 +1815,202 @@
         }
       }
     },
+    "/api/events/metrics": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Metricas de interaccion de todos los eventos",
+        "description": "Impresiones, clics en CTA y cierres por evento dentro del rango, con CTR y tasa de cierre. Orden: impresiones desc.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Inicio del rango (inclusive). Default: 30 dias antes de `to`."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Fin del rango (exclusivo). Default: ahora. Rango maximo 366 dias."
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Tipo(s) de evento, separados por coma.",
+              "example": "bar"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metricas por evento.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/EventMetricsSummary"
+                      }
+                    },
+                    "meta": {
+                      "type": "object",
+                      "properties": {
+                        "from": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "to": {
+                          "type": "string",
+                          "format": "date-time"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          }
+        }
+      }
+    },
+    "/api/events/{id}/metrics": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Metricas de interaccion de un evento",
+        "description": "Totales, visitantes unicos, CTR, tasa de cierre y serie diaria (dias UTC, rellenando con 0) dentro del rango.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Inicio del rango (inclusive). Default: 30 dias antes de `to`."
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "description": "Fin del rango (exclusivo). Default: ahora. Rango maximo 366 dias."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metricas del evento.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "event": {
+                          "$ref": "#/components/schemas/Event"
+                        },
+                        "range": {
+                          "type": "object",
+                          "properties": {
+                            "from": {
+                              "type": "string",
+                              "format": "date-time"
+                            },
+                            "to": {
+                              "type": "string",
+                              "format": "date-time"
+                            }
+                          }
+                        },
+                        "totals": {
+                          "$ref": "#/components/schemas/EventMetrics"
+                        },
+                        "daily": {
+                          "type": "array",
+                          "items": {
+                            "$ref": "#/components/schemas/EventDailyPoint"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
     "/api/events/{id}": {
       "parameters": [
         {
@@ -2859,6 +3170,71 @@
           },
           "404": {
             "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/api/public/companies/{companySlug}/events/{id}/interactions": {
+      "post": {
+        "tags": [
+          "Public"
+        ],
+        "summary": "Registrar interaccion con un evento",
+        "description": "Registra una impresion, un click en el CTA o un cierre de un evento activo. Enviar `impression` al mostrarlo, `cta_click` al hacer click en el boton y `dismiss` al cerrarlo. Rate limit: 120 requests/min por IP.",
+        "parameters": [
+          {
+            "name": "companySlug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventInteractionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Interaccion registrada."
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "description": "Empresa o evento no encontrado, o el evento no esta activo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Demasiadas requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
           }
         }
       }

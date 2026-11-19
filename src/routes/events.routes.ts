@@ -5,6 +5,8 @@ import {
   createEvent,
   updateEvent,
   deleteEvent,
+  getEventsMetrics,
+  getEventMetrics,
 } from '../controllers/events.controller';
 import { authenticate } from '../middlewares/auth.middleware';
 import { requireCompanyUser } from '../middlewares/authorize.middleware';
@@ -17,6 +19,9 @@ router.use(authenticate);
 router.use(requireCompanyUser);
 
 router.get('/', getAllEvents);
+// Before '/:id' so "metrics" is not taken as an id.
+router.get('/metrics', getEventsMetrics);
+router.get('/:id/metrics', getEventMetrics);
 router.get('/:id', getEventById);
 router.post('/', uploadEventImage, createEvent);
 router.put('/:id', uploadEventImage, updateEvent);

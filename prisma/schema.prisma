@@ -172,8 +172,34 @@ model Event {
   createdAt       DateTime       @default(now()) @map("created_at")
   updatedAt       DateTime       @updatedAt @map("updated_at")
 
-  company Company @relation(fields: [companyId], references: [id])
+  company      Company            @relation(fields: [companyId], references: [id])
+  interactions EventInteraction[]
 
   @@index([companyId, type, startsAt])
   @@map("events")
+}
+
+enum EventInteractionType {
+  impression
+  cta_click
+  dismiss
+}
+
+// One row per visitor interaction with an event on the public site (shown,
+// CTA clicked, closed). Source for the event metrics endpoints.
+model EventInteraction {
+  id        Int                  @id @default(autoincrement())
+  eventId   Int                  @map("event_id")
+  // Denormalized from the event so company-wide metrics need no join.
+  companyId Int                  @map("company_id")
+  type      EventInteractionType
+  // Optional anonymous id sent by the client (e.g. a UUID in localStorage), for unique counts.
+  visitorId String?              @map("visitor_id")
+  createdAt DateTime             @default(now()) @map("created_at")
+
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([eventId, type, createdAt])
+  @@index([companyId, createdAt])
+  @@map("event_interactions")
 }

@@ -52,6 +52,7 @@ Los consumidores externos acceden a los posts de una empresa usando el `companyS
 GET /api/public/companies/:companySlug/posts
 GET /api/public/companies/:companySlug/posts/:slug
 GET /api/public/companies/:companySlug/events
+POST /api/public/companies/:companySlug/events/:id/interactions
 ```
 
 1. El middleware `resolveCompany` busca la empresa por `slug`.
@@ -90,7 +91,9 @@ PUT    /api/tags/:id
 DELETE /api/tags/:id
 
 GET    /api/events
+GET    /api/events/metrics
 GET    /api/events/:id
+GET    /api/events/:id/metrics
 POST   /api/events
 PUT    /api/events/:id
 DELETE /api/events/:id
@@ -150,6 +153,22 @@ Un evento es una pieza que el sitio publico muestra solo durante una ventana de 
 - Estilo: `backgroundColor` y `textColor` en hex; `dismissible` indica si el visitante puede cerrarlo.
 - Imagen: archivo multipart en el campo `image` (mismo bucket y limites que las portadas de posts) o una URL en JSON.
 - `GET /api/public/companies/:companySlug/events?type=bar` devuelve solo los activos en este momento.
+
+### Metricas de interaccion
+
+El sitio publico reporta cada interaccion con `POST /api/public/companies/:companySlug/events/:id/interactions` (sin auth, `204`, rate limit 120 req/min por IP). Se guarda una fila por interaccion en `event_interactions` (se borran en cascada con el evento).
+
+| `type` | Cuando enviarlo |
+|--------|-----------------|
+| `impression` | Al mostrar el evento (una vez por vista de pagina). |
+| `cta_click` | Al hacer click en el boton CTA (rechazado con `400` si el evento no tiene `ctaUrl`). Usar `fetch(..., { keepalive: true })` para que no se pierda al navegar. |
+| `dismiss` | Al cerrar el evento (rechazado con `400` si `dismissible=false`). |
+
+- `visitorId` (opcional, 1-64 caracteres `[A-Za-z0-9_-]`): id anonimo del visitante, p.ej. un UUID guardado en `localStorage`. Habilita los conteos unicos; las interacciones sin `visitorId` cuentan en los totales pero no en los unicos.
+- Solo se aceptan interacciones de eventos en estado `active`; de lo contrario `404`.
+- `GET /api/events/metrics?from&to&type` devuelve por evento: `impressions`, `ctaClicks`, `dismissals`, sus versiones `unique*`, `ctr` (clics / impresiones) y `dismissRate` (cierres / impresiones).
+- `GET /api/events/:id/metrics?from&to` devuelve esos totales mas una serie diaria (`daily`, dias UTC con 0 en los dias sin datos).
+- Rango: `from` inclusive, `to` exclusivo (ISO 8601). Default: ultimos 30 dias; maximo 366 dias.
 
 ## Reglas de Aislamiento
 
